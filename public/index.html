@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>moba-beat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <span class="mark">moba-beat<span class="version" id="version"></span></span>
+    <span class="date" id="date"></span>
+  </header>
+
+  <main>
+    <section class="arena" aria-label="The lane">
+      <div class="side you">
+        <p class="team">Your squad</p>
+        <div class="units" id="you"></div>
+      </div>
+      <div class="mid" aria-hidden="true"></div>
+      <div class="side ghost">
+        <p class="team">Ghost squad</p>
+        <div class="units" id="ghost"></div>
+      </div>
+    </section>
+
+    <section class="beat" aria-labelledby="beat-title">
+      <div class="beat-head">
+        <h1 id="beat-title">Today's beat</h1>
+        <p class="bpm"><span id="bpm">–</span> BPM</p>
+      </div>
+      <ol class="track" id="track" aria-label="16 beats in 4 measures"></ol>
+      <ul class="legend">
+        <li><span class="key rest"></span>Rest: no crit</li>
+        <li><span class="key normal"></span>Beat</li>
+        <li><span class="key strong"></span>Strong: bigger crit</li>
+      </ul>
+      <button class="play" id="play" type="button" disabled>Play</button>
+      <p class="status" id="status" role="status"></p>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Everyone gets the same beat each day. It's made at midnight UTC from the shared ledger, so anyone can check it. <a href="/api/ledger">See the ledger</a></p>
+    <p class="note">The fight isn't built yet. The squads show where it will happen.</p>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

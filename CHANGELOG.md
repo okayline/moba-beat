@@ -4,6 +4,11 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.4 — "Lights Off"
+**Wed Oct 21, 2026 · 10:41 AM HST**
+
+- A page: the lane with your squad and the ghost squad (Clutch, Feed and Tilt are working names; the fight isn't built yet), and today's beat as 16 bars in 4 measures. Play clicks along at the day's tempo and the squads pulse on each beat. Dark, with the version number next to the name. Removed: nothing; before this the Worker answered only JSON.
+
 ## v0.3 — "The Beat"
 **Wed Oct 21, 2026 · 10:34 AM HST**
 

@@ -3,6 +3,12 @@
   "name": "moba-beat",
   "main": "src/worker.js",
   "compatibility_date": "2026-10-01",
+  // the page (public/). /api/* goes to the Worker code first.
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
   "d1_databases": [
     {
       "binding": "DB",
