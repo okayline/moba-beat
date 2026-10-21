@@ -4,6 +4,15 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.5 — "Your Beat"
+**Wed Oct 21, 2026 · 11:16 AM HST**
+
+- Each day has an 8-measure drumbeat made from the day's ledger hash: kick, snare and hi-hat play beats 1, 2 and 3 of every measure and leave beat 4 silent. Beat 4 is yours: tap it and you play a clap. Every measure has its own pattern, one of 108, and the tempo is now 70 to 130 BPM. Removed: the 80 to 120 BPM range, rest, normal and strong beats, and the click on every beat.
+- Play counts down on screen (-3, -2, -1), then shows beats 1, 2 and 3 of each measure and nothing on beat 4, your clap, and the measure playing is outlined on the grid. Removed: the silent one-measure wait with nothing on screen.
+- Enemies wind up: in about half the measures (never the first) an enemy plays a cue on beat 1, and its attack lands 2 beats later, on beat 3. Tap right then to parry.
+- Each day has its own sound: the beat plays on a hip-hop, electro or disco drum kit, picked by the day's hash and shown next to the tempo.
+- Every clap and parry is scored by how close it was to the real beat: perfect within 35 ms, good within 80 ms, otherwise a miss. A good clap makes your squad flash; a good parry knocks the enemy back. At the end each clap and parry is a dot (yellow perfect, blue good, grey miss), with your totals and how early or late you were on average. Scores aren't saved yet. Removed: most of the explaining text on the page, and the line-by-line results.
+
 ## v0.4 — "Lights Off"
 **Wed Oct 21, 2026 · 10:41 AM HST**
 

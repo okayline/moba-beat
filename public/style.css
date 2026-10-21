@@ -39,8 +39,13 @@ a { color: var(--you); text-underline-offset: 3px; }
 .ghost .token { color: var(--ghost); opacity: 0.8; }
 .token svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .arena.hit .token { transform: scale(1.08); }
-.arena.hit.strong .token { transform: scale(1.16); }
-.arena.hit.strong .token svg { filter: drop-shadow(0 0 6px var(--strong)); }
+/* an enemy winding up; a parried attack */
+.ghost .unit.winding .token { transform: translateX(-10px) scale(1.12); opacity: 1; }
+.arena.parried .ghost .token { transform: translateX(8px); }
+.arena.parried .you .token svg { filter: drop-shadow(0 0 8px var(--ink)); }
+/* a perfect or good tap: your squad crits */
+.arena.crit .you .token { transform: scale(1.18); }
+.arena.crit .you .token svg { filter: drop-shadow(0 0 8px var(--strong)); }
 
 /* the beat */
 .beat { margin-top: 28px; }
@@ -48,30 +53,54 @@ a { color: var(--you); text-underline-offset: 3px; }
 h1 { font-size: clamp(1.6rem, 5vw, 2.2rem); font-weight: 800; letter-spacing: -0.03em; margin: 0; }
 .bpm { margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
 .bpm span { color: var(--ink); font-weight: 700; font-size: 1.3rem; }
+.bpm .style { font-weight: 600; font-size: 1rem; color: var(--strong); margin-right: 6px; }
 
-/* 16 beats in 4 measures: a wider gap between measures */
-.track { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); column-gap: 14px; }
-.track li { display: grid; grid-template-columns: repeat(4, 1fr); column-gap: 4px; height: 84px; align-items: end; }
-.track span { border-radius: 6px; }
-.track span.rest { height: 14px; border: 2px solid var(--line); }
-.track span.normal { height: 44px; background: var(--ink); }
-.track span.strong { height: 84px; background: var(--strong); }
-.track span.now { outline: 3px solid var(--you); outline-offset: 2px; }
-
-.legend { list-style: none; padding: 0; margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.9rem; color: var(--muted); }
+/* the drums: a step grid per measure, 8 eighths wide, rows hat / snare / kick. Beat 4 (the last two columns) is the
+   player's: no drums there, and the clap they play is marked in amber. */
+.track { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 14px; }
+.track li { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(4, 18px); gap: 4px; }
+.track .step { border-radius: 4px; background: var(--lane); }
+.track .step.yours { background: transparent; }
+.track .step.on.kick { background: var(--ink); }
+.track .step.on.snare { background: var(--muted); }
+.track .step.on.hat { background: var(--line); }
+.track .step.you { background: var(--strong); }
+.track .step.now { background: var(--you); }
+.track .step.enemy { background: transparent; }
+.track .step.enemy.cue { background: var(--ghost); }
+.track .step.enemy.parry { background: transparent; box-shadow: inset 0 0 0 3px var(--strong); }
+.legend { list-style: none; padding: 0; margin: 16px 0 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.9rem; color: var(--muted); }
 .legend li { display: flex; align-items: center; gap: 8px; }
-.key { display: inline-block; width: 12px; border-radius: 3px; }
-.key.rest { height: 6px; border: 2px solid var(--line); }
-.key.normal { height: 12px; background: var(--ink); }
-.key.strong { height: 18px; background: var(--strong); }
+.key { display: inline-block; width: 12px; height: 14px; border-radius: 3px; background: var(--ink); }
+.key.target { background: var(--strong); }
+.key.kick { background: var(--ink); }
+.key.snare { background: var(--muted); }
+.key.hat { background: var(--line); }
+.key.cue { background: var(--ghost); }
+.key.parry { box-shadow: inset 0 0 0 3px var(--strong); }
+.how { color: var(--muted); max-width: 60ch; line-height: 1.5; margin: 14px 0 0; }
 
-.play {
-  margin-top: 22px; font: inherit; font-weight: 700; font-size: 1.05rem; color: #fff; background: var(--you);
-  border: 0; border-radius: 999px; padding: 12px 28px; cursor: pointer;
+.controls { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+.play, .tap {
+  font: inherit; font-weight: 700; font-size: 1.05rem; border: 0; border-radius: 999px; padding: 12px 28px; cursor: pointer;
 }
-.play:disabled { opacity: 0.5; cursor: default; }
-.play:focus-visible { outline-color: var(--ink); }
-.status { min-height: 1.4em; color: var(--muted); }
+.play { color: #fff; background: var(--you); }
+.tap { color: #1c1400; background: var(--strong); min-width: 140px; }
+.play:disabled, .tap:disabled { opacity: 0.4; cursor: default; }
+.play:focus-visible, .tap:focus-visible { outline-color: var(--ink); }
+.tap.hit { transform: scale(0.96); }
+/* the countdown (-3, -2, -1) and then the beat of the measure, 1 to 3; nothing on beat 4 */
+.count { margin: 0; align-self: center; font-weight: 800; font-size: 2rem; color: var(--ink); min-width: 1.6em; text-align: center; font-variant-numeric: tabular-nums; }
+.count.pop { animation: pop 160ms ease-out; }
+@keyframes pop { from { transform: scale(1.3); } to { transform: scale(1); } }
+.track li.live { outline: 2px solid var(--line); outline-offset: 4px; border-radius: 6px; }
+
+/* the results: one dot per clap (round) or parry (square), in order */
+.results { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px; max-width: 520px; }
+.results li { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+.results li.parry { border-radius: 2px; }
+.results li.perfect { background: var(--strong); }
+.results li.good { background: var(--you); }
 
 .foot { margin-top: 36px; font-size: 0.9rem; color: var(--muted); max-width: 62ch; line-height: 1.5; }
 .foot .note { margin-top: 6px; }
@@ -81,11 +110,11 @@ h1 { font-size: clamp(1.6rem, 5vw, 2.2rem); font-weight: 800; letter-spacing: -0
   .token { width: 36px; height: 36px; }
   .unit span { font-size: 0.85rem; }
   .track { column-gap: 8px; }
-  .track li { column-gap: 3px; height: 70px; }
-  .track span.normal { height: 36px; }
-  .track span.strong { height: 70px; }
+  .track li { gap: 2px; grid-template-rows: repeat(4, 14px); }
 }
 @media (prefers-reduced-motion: reduce) {
   .token { transition: none; }
-  .arena.hit .token, .arena.hit.strong .token { transform: none; }
+  .arena.hit .token, .arena.crit .token, .ghost .unit.winding .token, .arena.parried .ghost .token { transform: none; }
+  .tap.hit { transform: none; }
+  .count.pop { animation: none; }
 }

@@ -28,22 +28,30 @@
     <section class="beat" aria-labelledby="beat-title">
       <div class="beat-head">
         <h1 id="beat-title">Today's beat</h1>
-        <p class="bpm"><span id="bpm">–</span> BPM</p>
+        <p class="bpm"><span id="style" class="style"></span> <span id="bpm">–</span> BPM</p>
       </div>
-      <ol class="track" id="track" aria-label="16 beats in 4 measures"></ol>
+      <ol class="track" id="track" aria-label="The drums: 8 measures"></ol>
       <ul class="legend">
-        <li><span class="key rest"></span>Rest: no crit</li>
-        <li><span class="key normal"></span>Beat</li>
-        <li><span class="key strong"></span>Strong: bigger crit</li>
+        <li><span class="key cue"></span>Enemy winds up</li>
+        <li><span class="key parry"></span>Parry, 2 beats later</li>
+        <li><span class="key hat"></span>Hi-hat</li>
+        <li><span class="key snare"></span>Snare</li>
+        <li><span class="key kick"></span>Kick</li>
+        <li><span class="key target"></span>Your clap, on beat 4</li>
       </ul>
-      <button class="play" id="play" type="button" disabled>Play</button>
+      <p class="how">Clap on 4. Parry 2 beats after a wind-up.</p>
+      <div class="controls">
+        <button class="play" id="play" type="button" disabled>Play</button>
+        <button class="tap" id="tap" type="button" disabled>Tap</button>
+        <p class="count" id="count" aria-live="polite"></p>
+      </div>
       <p class="status" id="status" role="status"></p>
+      <ol class="results" id="results"></ol>
     </section>
   </main>
 
   <footer class="foot">
-    <p>Everyone gets the same beat each day. It's made at midnight UTC from the shared ledger, so anyone can check it. <a href="/api/ledger">See the ledger</a></p>
-    <p class="note">The fight isn't built yet. The squads show where it will happen.</p>
+    <p><a href="/api/ledger">See the ledger</a></p>
   </footer>
 
   <script type="module" src="app.js"></script>
