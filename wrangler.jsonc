@@ -9,6 +9,10 @@
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"]
   },
+  // the shared registry (the dungeon-items Worker, `Registry` entrypoint): checkpoints of this ledger
+  "services": [
+    { "binding": "REGISTRY", "service": "dungeon-items", "entrypoint": "Registry" }
+  ],
   "d1_databases": [
     {
       "binding": "DB",

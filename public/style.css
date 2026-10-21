@@ -118,3 +118,21 @@ h1 { font-size: clamp(1.6rem, 5vw, 2.2rem); font-weight: 800; letter-spacing: -0
   .tap.hit { transform: none; }
   .count.pop { animation: none; }
 }
+
+/* the ledger page */
+.top a.mark { color: var(--ink); text-decoration: none; }
+.ledger .lead { color: var(--muted); max-width: 62ch; line-height: 1.5; margin: 0; }
+.entries { list-style: none; padding: 0; margin: 20px 0 0; display: grid; gap: 2px; }
+.entries li { display: grid; grid-template-columns: 3.2em 1fr auto; gap: 12px; align-items: baseline; padding: 12px 14px; background: var(--lane); }
+.entries li:first-child { border-radius: 12px 12px 0 0; }
+.entries li:last-child { border-radius: 0 0 12px 12px; }
+.entries .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+.entries .what { min-width: 0; line-height: 1.45; }
+.entries .sub { display: block; color: var(--muted); font-size: 0.85rem; }
+.entries .hash { color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.entries li.run .n { color: var(--strong); }
+.more { margin-top: 14px; font: inherit; color: var(--ink); background: var(--lane); border: 0; border-radius: 999px; padding: 10px 20px; cursor: pointer; }
+@media (max-width: 480px) {
+  .entries li { grid-template-columns: 2.6em 1fr; }
+  .entries .hash { grid-column: 2; }
+}

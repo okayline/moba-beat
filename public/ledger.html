@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>moba-beat ledger</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="mark" href="./">moba-beat</a>
+    <span class="date">Ledger</span>
+  </header>
+  <main class="ledger">
+    <p class="lead">Every day's beat and every sealed run, on one hash chain: each entry's hash is SHA-256 of the one before it, a bar, and its record. Change any entry and every hash after it breaks.</p>
+    <div class="controls">
+      <button class="play" id="check" type="button">Check the chain</button>
+      <p class="status" id="checked" role="status"></p>
+    </div>
+    <ol class="entries" id="entries"></ol>
+    <button class="more" id="more" type="button" hidden>Older entries</button>
+  </main>
+  <script type="module" src="ledger.js"></script>
+</body>
+</html>

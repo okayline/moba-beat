@@ -140,7 +140,7 @@ function play() {
   for (const p of day.pad) padChord(start + p.at * spb, p.midi, p.dur * spb);
   targets = day.targets.map((x) => x.at * spb * 1000);   // ms from the song's first beat
   taps = []; playing = true;
-  $("results").innerHTML = ""; $("status").textContent = "";
+  $("results").innerHTML = ""; $("status").textContent = ""; $("sealed").textContent = "";
   $("play").disabled = true; $("tap").disabled = false; $("tap").focus();
   raf = requestAnimationFrame(frame);
 }
@@ -199,7 +199,20 @@ function finish() {
   $("status").textContent = `${n("perfect")} perfect, ${n("good")} good, ${n("miss")} missed.` +
     (avg === null ? "" : ` On average ${Math.abs(avg)} ms ${avg < 0 ? "early" : "late"}.`);
   $("play").textContent = "Play again"; $("play").disabled = false; $("tap").disabled = true;
+  seal();
   $("reveal").hidden = false;                            // the full beat is shown once you've played it
+}
+
+// Send the taps to the server, which scores them itself. Your first run of the day is sealed on the ledger.
+async function seal() {
+  try {
+    const r = await fetch("/api/run", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ day: day.day, taps }) });
+    const a = await r.json();
+    if (!r.ok) throw new Error(a.error);
+    $("sealed").textContent = a.sealed ? "Sealed on the ledger." : `Practice. Today's sealed run: ${a.today.perfect} perfect, ${a.today.good} good, ${a.today.miss} missed.`;
+  } catch (e) {
+    $("sealed").textContent = (e && e.message) || "This run couldn't be saved.";
+  }
 }
 
 $("play").addEventListener("click", () => ctx.resume().then(play));

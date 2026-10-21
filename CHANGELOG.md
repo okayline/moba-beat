@@ -4,6 +4,13 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.8 — "On the Record"
+**Wed Oct 21, 2026 · 11:52 AM HST**
+
+- Your run is saved. When the song ends, your taps go to the server, which scores them itself against the hidden beat. Your first run of the day is sealed on the ledger; later plays that day are practice. You're a random player number kept in a cookie, with no name.
+- A ledger page: every day's beat (its kit, tempo, key and chords, worked out from the day's hash) and every sealed run, newest first, with a button that checks every hash in your browser. Removed: the "See the ledger" link going to raw data.
+- The ledger now sends a checkpoint to the shared registry after every seal, like the other games, so it's timestamped hourly with the rest.
+
 ## v0.7 — "Real Kits"
 **Wed Oct 21, 2026 · 11:35 AM HST**
 

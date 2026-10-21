@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { beat, pattern, PROGRESSIONS } from "../src/beat.js";
+import { beat, pattern, PROGRESSIONS } from "../public/beat.js";
 import { score, grade } from "../public/score.js";
 
 const hex = (bytes) => bytes.map((b) => b.toString(16).padStart(2, "0")).join("").padEnd(64, "0");

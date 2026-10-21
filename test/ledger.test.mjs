@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { GENESIS, dayEntry, verifyChain } from "../src/ledger.js";
-import { beat } from "../src/beat.js";
+import { beat } from "../public/beat.js";
 
 // a tiny D1 lookalike (copied from clutch-feed-tilt test/worker.test.mjs)
 function fakeD1() {
@@ -26,17 +26,17 @@ const head1 = async () => R1, head2 = async () => R2;
 
 test("a day's entry is SHA-256(prev + '|' + record), chained from GENESIS, and sealed once", async () => {
   const db = fakeD1();
-  const d1 = await dayEntry(db, "2027-01-01", head1, 100);
+  const d1 = (await dayEntry(db, "2027-01-01", head1, 100)).hash;
   assert.equal(d1, sha(GENESIS + "|" + JSON.stringify({ day: "2027-01-01", registry: R1 })));
-  assert.equal(await dayEntry(db, "2027-01-01", head2, 200), d1, "the same day is not sealed twice, whatever head is offered");
-  const d2 = await dayEntry(db, "2027-01-02", head1, 300);
+  assert.deepEqual(await dayEntry(db, "2027-01-01", head2, 200), { hash: d1, sealed: false }, "the same day is not sealed twice, whatever head is offered");
+  const d2 = (await dayEntry(db, "2027-01-02", head1, 300)).hash;
   assert.equal(d2, sha(d1 + "|" + JSON.stringify({ day: "2027-01-02", registry: R1 })), "the next day chains from the first");
   assert.equal(db.raw.prepare("SELECT COUNT(*) AS n FROM ledger").get().n, 2);
 });
 
 test("the beat differs every day, even when the registry head is the same", async () => {
   const db = fakeD1();
-  assert.notEqual(await dayEntry(db, "2027-01-01", head1, 1), await dayEntry(db, "2027-01-02", head1, 2));
+  assert.notEqual((await dayEntry(db, "2027-01-01", head1, 1)).hash, (await dayEntry(db, "2027-01-02", head1, 2)).hash);
 });
 
 test("verifyChain accepts the chain and finds a changed record", async () => {
