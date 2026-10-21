@@ -4,6 +4,11 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.7 — "Real Kits"
+**Wed Oct 21, 2026 · 11:35 AM HST**
+
+- The drums are recorded samples now: kick, snare, hi-hat and your clap come from free CC0 drum kits (Boochi44/free-drum-samples, many from Edward Loveall's TR-808 recordings). Hip-hop uses a lo-fi vintage kit, electro a clean 808 kit, disco a mix with an open hi-hat. The bass and chords are still made in the browser. Removed: the synthesized kick, snare, hi-hat and clap.
+
 ## v0.6 — "By Ear"
 **Wed Oct 21, 2026 · 11:30 AM HST**
 

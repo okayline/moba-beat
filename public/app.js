@@ -50,10 +50,18 @@ async function load() {
     }));
     return `<li aria-label="Measure ${m + 1}">${cells.join("")}</li>`;
   }).join("");
+  try {
+    ctx = new AudioContext();                            // starts paused; Play resumes it (browsers need a tap first)
+    makeBus();
+    await loadSamples();
+  } catch {
+    $("status").textContent = "Today's drums didn't load. Reload the page to try again.";
+    return;
+  }
   $("play").disabled = false;
 }
 
-// drums from Web Audio, in three kits (the day's style). Every sound is made here, from oscillators and noise.
+// Sounds: the drums are samples; the enemy's cue, the bass and the chords are made here from oscillators.
 // Everything plays into one bus: a dry path and a reverb (a room made from decaying noise, its size set by the kit),
 // glued by a compressor on the way out.
 const ROOMS = { "hip-hop": [0.6, 0.16], electro: [0.9, 0.14], disco: [1.5, 0.22] };   // [seconds of tail, how much]
@@ -68,14 +76,6 @@ function makeBus() {
   bus.connect(glue); bus.connect(room); room.connect(wet); wet.connect(glue); glue.connect(ctx.destination);
 }
 
-let noiseBuf;
-function noise(t, dur, vol, type, freq) {
-  noiseBuf ||= (() => { const b = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; })();
-  const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-  src.buffer = noiseBuf; f.type = type; f.frequency.value = freq;
-  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  src.connect(f).connect(g).connect(bus); src.start(t); src.stop(t + dur + 0.02);
-}
 // a pitched hit: from f0 down to f1 over drop seconds, fading out over dur
 function tone(t, f0, f1, drop, dur, vol, type = "sine") {
   const o = ctx.createOscillator(), g = ctx.createGain();
@@ -83,29 +83,22 @@ function tone(t, f0, f1, drop, dur, vol, type = "sine") {
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   o.connect(g).connect(bus); o.start(t); o.stop(t + dur + 0.02);
 }
-const KITS = {
-  // dusty and punchy: a round kick with a click, a fat snare, a soft hat
-  "hip-hop": {
-    kick: (t) => { tone(t, 130, 48, 0.1, 0.32, 0.95); noise(t, 0.01, 0.3, "highpass", 3000); },
-    snare: (t) => { noise(t, 0.22, 0.5, "bandpass", 1800); tone(t, 200, 160, 0.05, 0.1, 0.3); },
-    hat: (t) => noise(t, 0.03, 0.12, "highpass", 8000),
-    clap: (t) => { for (const d of [0, 0.012, 0.024]) noise(t + d, 0.1, 0.5, "bandpass", 1300); },
-  },
-  // drum machine: a long booming kick, a snappy rim snare, a tight metallic hat
-  electro: {
-    kick: (t) => tone(t, 75, 40, 0.3, 0.6, 1),
-    snare: (t) => { noise(t, 0.09, 0.4, "highpass", 2500); tone(t, 340, 330, 0.02, 0.06, 0.25, "triangle"); },
-    hat: (t) => { noise(t, 0.02, 0.15, "highpass", 9500); tone(t, 6200, 6000, 0.02, 0.02, 0.03, "square"); },
-    clap: (t) => { for (const d of [0, 0.01, 0.02]) noise(t + d, 0.05, 0.45, "bandpass", 1100); noise(t + 0.03, 0.18, 0.25, "bandpass", 1100); },
-  },
-  // dance floor: a tight kick, a bright clap-snare, an open hat that rings
-  disco: {
-    kick: (t) => tone(t, 110, 55, 0.06, 0.18, 0.9),
-    snare: (t) => { for (const d of [0, 0.01]) noise(t + d, 0.16, 0.4, "bandpass", 1600); tone(t, 240, 200, 0.03, 0.06, 0.15); },
-    hat: (t) => noise(t, 0.22, 0.13, "highpass", 6500),
-    clap: (t) => { for (const d of [0, 0.012, 0.024, 0.036]) noise(t + d, 0.12, 0.45, "bandpass", 1700); },
-  },
-};
+// The drums are recorded one-shots (public/samples, CC0), one set per kit, loaded with the day's beat.
+const DRUMS = ["kick", "snare", "hat", "clap"];
+const SAMPLES = {};
+async function loadSamples() {
+  await Promise.all(DRUMS.map(async (d) => {
+    const r = await fetch(`samples/${day.style}/${d}.wav`);
+    if (!r.ok) throw new Error(d);
+    SAMPLES[d] = await ctx.decodeAudioData(await r.arrayBuffer());
+  }));
+}
+function sample(kind, t, vol = 0.9) {
+  const src = ctx.createBufferSource(), g = ctx.createGain();
+  src.buffer = SAMPLES[kind]; g.gain.value = vol;
+  src.connect(g).connect(bus); src.start(t);
+}
+
 // The bass, by kit: [wave, filter cutoff, how fast it fades to its held level]. Each note holds until the next one.
 const hz = (midi) => 440 * 2 ** ((midi - 69) / 12);
 const BASS_SOUND = { "hip-hop": ["sine", 500, 0.4], electro: ["sawtooth", 700, 0.12], disco: ["square", 900, 0.1] };
@@ -134,13 +127,11 @@ function drum(kind, t) {
     for (const [f, d] of [[660, 0], [990, 0.07]]) tone(t + d, f, f, 0.01, 0.09, 0.12, "square");
     return;
   }
-  KITS[day.style][kind](t);
+  sample(kind, t);
 }
 
 function play() {
   $("reveal").hidden = true;                             // the grid stays hidden while you play: you play by ear
-  ctx ||= new AudioContext();
-  bus || makeBus();
   spb = 60 / day.bpm;
   start = ctx.currentTime + 0.15 + COUNT_IN * spb;      // the song's first beat, on the audio clock
   for (const h of day.hits) drum(h.drum, start + h.at * spb);
@@ -211,7 +202,7 @@ function finish() {
   $("reveal").hidden = false;                            // the full beat is shown once you've played it
 }
 
-$("play").addEventListener("click", play);
+$("play").addEventListener("click", () => ctx.resume().then(play));
 $("tap").addEventListener("pointerdown", (e) => { e.preventDefault(); tap(); });
 document.addEventListener("keydown", (e) => { if (e.code === "Space" && playing) { e.preventDefault(); tap(); } });
 
