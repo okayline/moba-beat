@@ -1,0 +1,13 @@
+{
+  // moba-beat. The Worker's name must match the one in the Cloudflare dashboard.
+  "name": "moba-beat",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "moba-beat",
+      "database_id": "8ced4f17-0ae0-4852-b02c-5003d7f08c5d"
+    }
+  ]
+}

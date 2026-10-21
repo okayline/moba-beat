@@ -45,3 +45,14 @@ test("verifyChain accepts the chain and finds a changed record", async () => {
   const bad = rows(); bad[1] = { ...bad[1], record: JSON.stringify({ day: "2027-01-02", registry: R2 }) };
   assert.deepEqual(await verifyChain(bad), { ok: false, at: bad[1].id });
 });
+
+test("GET /api/ledger lists the chain newest first, with before and limit", async () => {
+  const { default: worker } = await import("../src/worker.js");
+  const db = fakeD1();
+  for (const d of ["2027-01-01", "2027-01-02", "2027-01-03"]) await dayEntry(db, d, R1, 1);
+  const get = async (q) => (await (await worker.fetch(new Request("https://x/api/ledger" + q), { DB: db })).json()).entries;
+  assert.deepEqual((await get("")).map((e) => e.day), ["2027-01-03", "2027-01-02", "2027-01-01"]);
+  assert.deepEqual((await get("?limit=1")).map((e) => e.day), ["2027-01-03"]);
+  assert.deepEqual((await get("?before=2")).map((e) => e.day), ["2027-01-01"]);
+  assert.equal((await worker.fetch(new Request("https://x/nope"), { DB: db })).status, 404);
+});
