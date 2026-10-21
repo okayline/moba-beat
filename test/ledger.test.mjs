@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { GENESIS, dayEntry, verifyChain } from "../src/ledger.js";
+import { beat } from "../src/beat.js";
 
 // a tiny D1 lookalike (copied from clutch-feed-tilt test/worker.test.mjs)
 function fakeD1() {
@@ -87,6 +88,7 @@ test("GET /api/today seals the day with the registry head, once", async () => {
     const a = await get();
     assert.deepEqual([a.day, a.registry], [day, R1]);
     assert.equal(a.hash, sha(GENESIS + "|" + JSON.stringify({ day, registry: R1 })));
+    assert.deepEqual([a.bpm, a.beats], [beat(a.hash).bpm, beat(a.hash).beats], "the beat comes with the day");
     assert.equal((await get()).hash, a.hash);
     assert.equal(asked, 1, "the registry is read only when the day is sealed");
   } finally { globalThis.fetch = real; }
