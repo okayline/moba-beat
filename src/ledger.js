@@ -19,12 +19,12 @@ export async function head(db) {
   return h ? h.hash : GENESIS;
 }
 
-// The day's entry hash, sealing it first if it isn't on the chain yet. `day` is "YYYY-MM-DD", `registryHead` is the
-// registry's head hash at 00:00 UTC that day.
-export async function dayEntry(db, day, registryHead, t) {
+// The day's entry hash, sealing it first if it isn't on the chain yet. `day` is "YYYY-MM-DD", `getRegistryHead` is an
+// async function giving the registry's head hash at 00:00 UTC that day, called only when the day is sealed.
+export async function dayEntry(db, day, getRegistryHead, t) {
   const got = await db.prepare("SELECT hash FROM ledger WHERE kind = 'day' AND day = ?").bind(day).first();
   if (got) return got.hash;
-  const record = JSON.stringify({ day, registry: registryHead });
+  const record = JSON.stringify({ day, registry: await getRegistryHead() });
   const prev = await head(db), hash = await sha256(prev + "|" + record);
   await db.prepare("INSERT INTO ledger (kind, day, record, prev_hash, hash, created_at) VALUES ('day', ?, ?, ?, ?, ?)")
     .bind(day, record, prev, hash, t).run();
