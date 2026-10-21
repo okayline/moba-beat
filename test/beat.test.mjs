@@ -1,23 +1,52 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { beat, pattern } from "../src/beat.js";
+import { beat, pattern, PROGRESSIONS } from "../src/beat.js";
 import { score, grade } from "../public/score.js";
 
 const hex = (bytes) => bytes.map((b) => b.toString(16).padStart(2, "0")).join("").padEnd(64, "0");
 
-test("a drumbeat worked out by hand: 8 measures, each its own pattern from its own byte, nothing ever on beat 4", () => {
+test("a drumbeat worked out by hand: A A A B | A A A C, nothing ever on beat 4", () => {
   // byte mod 108, read as digits base 3, 2, 3, 2, 3 for the "and" of 1, beat 2, the "and" of 2, beat 3, the "and" of 3
   //   0 -> 0 0 0 0 0: -, snare, -, kick, -           1 -> 1 0 0 0 0: hat, snare, -, kick, -
-  //   107 -> 2 1 2 1 2: kick, kick, kick, snare, kick  108 -> 0 again
+  //   107 -> 2 1 2 1 2: kick, kick, kick, snare, kick
   const P0 = [[0, "kick"], [1, "snare"], [2, "kick"]];
   const P1 = [[0, "kick"], [0.5, "hat"], [1, "snare"], [2, "kick"]];
   const P107 = [[0, "kick"], [0.5, "kick"], [1, "kick"], [1.5, "kick"], [2, "snare"], [2.5, "kick"]];
-  const b = beat(hex([0, 1, 107, 108, 1, 0, 107, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 40]));
-  const want = [P0, P1, P107, P0, P1, P0, P107, P1].flatMap((p, m) => p.map(([at, drum]) => ({ at: m * 4 + at, drum })));
+  const b = beat(hex([0, 1, 107, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 40]));
+  const want = [P0, P0, P0, P1, P0, P0, P0, P107].flatMap((p, m) => p.map(([at, drum]) => ({ at: m * 4 + at, drum })));
   assert.equal(b.measures, 8);
   assert.deepEqual(b.hits, want);
   assert.ok(b.hits.every((h) => h.at % 4 < 3), "beat 4 of every measure is the player's: no drum on it or after it");
   assert.equal(b.bpm, 110, "bytes 18, 19 = 0, 40: 40 mod 61 = 40, + 70");
+  // a fill the same as A moves to the next pattern: bytes 0, 1 = 5, 113 (113 mod 108 = 5) -> B is 6
+  const c = beat(hex([5, 113, 6]));
+  assert.deepEqual(c.hits.filter((h) => h.at >= 12 && h.at < 16).map((h) => [h.at - 12, h.drum]), pattern(6));
+});
+
+test("the harmony worked out by hand: key of D, I V vi IV twice with measure 8 home, hip-hop bass, soft triads", () => {
+  // byte 3 = 2 -> D; byte 4 = 0 -> I V vi IV; byte 20 = 0 -> hip-hop
+  const b = beat(hex([0, 0, 0, 2, 0]));
+  // I V vi IV I V vi I in D: D A Bm G D A Bm D (roots in semitones above C: 2 9 11 7 2 9 11 2)
+  assert.deepEqual(b.chords.map((c) => [c.root, c.quality]),
+    [[2, "maj"], [9, "maj"], [11, "min"], [7, "maj"], [2, "maj"], [9, "maj"], [11, "min"], [2, "maj"]]);
+  assert.equal(b.style, "hip-hop");
+  // hip-hop bass, measure 1 on D (36 + 2 = 38): root, root, fifth (45); measure 2 on A (45): 45, 45, 52
+  assert.deepEqual(b.bass.slice(0, 6).map((n) => [n.at, n.midi, n.dur]),
+    [[0, 38, 1.5], [1.5, 38, 1], [2.5, 45, 1.5], [4, 45, 1.5], [5.5, 45, 1], [6.5, 52, 1.5]]);
+  assert.equal(b.bass.at(-1).at + b.bass.at(-1).dur, 32, "the last bass note rings to the end");
+  // pads: D major from C4 + 2 = 62 66 69; B minor 71 74 78
+  assert.deepEqual(b.pad[0], { at: 0, dur: 4, midi: [62, 66, 69] });
+  assert.deepEqual(b.pad[2].midi, [71, 74, 78]);
+});
+
+test("nothing new starts on beat 4 in any kit, and every progression's first half ends away from home", () => {
+  for (const s of [0, 1, 2]) {
+    const bytes = Array(32).fill(0); bytes[20] = s;
+    const b = beat(hex(bytes));
+    assert.ok(b.bass.every((n) => n.at % 4 !== 3), b.style + " bass");
+    assert.ok(b.pad.every((n) => n.at % 4 !== 3), b.style + " pad");
+  }
+  for (const p of PROGRESSIONS) assert.ok([5, 7].includes(p[3][0]), "measure 4 is IV or V");
 });
 
 test("wind-ups worked out by hand: cue on beat 1, lands 2 beats later on beat 3; claps on every beat 4", () => {

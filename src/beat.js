@@ -1,11 +1,18 @@
-// The day's drumbeat, from the day's ledger hash (the hash of the day's entry, see ledger.js). Pure: the same hash
-// always gives the same beat, here and anywhere else.
+// The day's music, from the day's ledger hash (the hash of the day's entry, see ledger.js). Pure: the same hash always
+// gives the same music, here and anywhere else.
 //
-// Underneath is a fixed metronome: 8 measures of 4 beats (32 beats) at the day's tempo. It is never heard. Over it,
-// a drum pattern that plays beats 1, 2 and 3 of every measure and leaves beat 4 silent: beat 4 is the player's. They
-// tap it, their tap plays a clap, and it is scored by how close it is to the metronome (score.js).
-// Every measure has its own pattern, from one byte each (bytes 0 to 7): the value mod 108 picks one of 108 patterns,
-// built slot by slot:
+// Underneath is a fixed metronome: 8 measures of 4 beats (32 beats) at the day's tempo. It is never heard. Over it, a
+// short song: drums, a bassline and soft chords. The drums play beats 1, 2 and 3 of every measure and leave beat 4
+// silent: beat 4 is the player's. They tap it, their tap plays a clap, and it is scored against the metronome
+// (score.js). Nothing new starts on beat 4: chords and bass notes can ring through it, but never begin on it.
+//
+// THE SHAPE: a drum loop with fills, A A A B | A A A C. Measure A repeats so the ear locks in; B and C are the fills
+// that end each 4-measure phrase.
+//
+//   bytes 0, 1, 2    patterns A, B and C: value mod 108 picks one of 108 patterns (B or C moves to the next pattern
+//                    along if it would be the same as A)
+//
+// A pattern, slot by slot:
 //
 //   beat 1           always a kick
 //   the "and" of 1   nothing, hi-hat or kick
@@ -14,14 +21,20 @@
 //   beat 3           kick or snare
 //   the "and" of 3   nothing, hi-hat or kick
 //
-// (3 x 2 x 3 x 2 x 3 = 108). Two measures can come out the same by chance (1 in 108 for any pair).
+// THE HARMONY: a major key and a 4-chord progression played twice, one chord a measure. Each progression ends its first
+// half away from home (on V or IV, a half cadence), and measure 8 is always I, so the song ends home.
 //
-//   bytes 18, 19   as one number, mod 61: the tempo above BPM_MIN (70 to 130 BPM)
-//   byte 20        the day's sound (STYLES, value mod 3): the same pattern, played on a hip-hop, electro or disco kit
+//   byte 3           the key: value mod 12 semitones above C
+//   byte 4           the progression (PROGRESSIONS, value mod their number)
 //
-// Enemy wind-ups (cue, then wait): in any measure but the first, an enemy may wind up on beat 1 with a cue sound; the
-// attack lands WAIT beats later, on beat 3, and the player taps right then to parry it. Measure 1 never has one, so the
-// 1-2-3-clap is heard first.
+// The bass follows the chords: its rhythm and which chord notes it plays come from the kit (BASS); the chords are held
+// softly under everything for the whole measure.
+//
+//   bytes 18, 19     as one number, mod 61: the tempo above BPM_MIN (70 to 130 BPM)
+//   byte 20          the day's kit (STYLES, value mod 3): hip-hop, electro or disco
+//
+// ENEMY WIND-UPS (cue, then wait): in any measure but the first, an enemy may wind up on beat 1 with a cue sound; the
+// attack lands WAIT beats later, on beat 3, and the player taps right then to parry it.
 //
 //   byte 10          bit m set means a wind-up in measure m + 1 (bit 0 is ignored; if no bit is set, the last
 //                    measure gets one)
@@ -35,6 +48,7 @@ export const BPM_MIN = 70, BPM_MAX = 130;
 export const CLAPS = Array.from({ length: MEASURES }, (_, m) => m * MEASURE + 3);   // beat 4 of each measure (0-based)
 export const STYLES = ["hip-hop", "electro", "disco"];
 export const WAIT = 2;                                    // beats from a wind-up's cue to where it lands
+export const SHAPE = ["A", "A", "A", "B", "A", "A", "A", "C"];
 
 const OFF = [null, "hat", "kick"];
 
@@ -49,15 +63,56 @@ export function pattern(n) {
   return p.filter(([, drum]) => drum);
 }
 
+// Chords as scale degrees of the major key: [semitones above the key, quality]. Each list is one 4-measure half.
+const I = [0, "maj"], ii = [2, "min"], iii = [4, "min"], IV = [5, "maj"], V = [7, "maj"], vi = [9, "min"];
+export const PROGRESSIONS = [
+  [I, V, vi, IV],     // the pop progression
+  [I, vi, IV, V],     // the fifties progression
+  [vi, IV, I, V],     // the same four, starting sad
+  [I, IV, vi, V],
+  [ii, V, I, IV],     // jazzy: two-five-one
+  [I, iii, IV, V],
+];
+const TRIAD = { maj: [0, 4, 7], min: [0, 3, 7] };
+
+// The bass for each kit: [beat, which note] for one measure, where the note is "root", "fifth" or "octave" of the
+// measure's chord. No note starts on beat 4 (beat 3.0); the last one rings through it into the next measure.
+export const BASS = {
+  "hip-hop": [[0, "root"], [1.5, "root"], [2.5, "fifth"]],                                   // laid back
+  electro: [[0, "root"], [0.75, "root"], [1.5, "root"], [2.25, "fifth"], [2.5, "root"]],    // tight and repeated
+  disco: [[0, "root"], [0.5, "octave"], [1, "root"], [1.5, "octave"], [2, "root"], [2.5, "octave"], [3.5, "octave"]], // octave bounce
+};
+const BASS_NOTE = { root: 0, fifth: 7, octave: 12 };
+export const BASS_LOW = 36, PAD_LOW = 60;                 // C2 and C4, as MIDI note numbers
+
 export function beat(hash) {
   const bytes = hash.match(/../g).map((h) => parseInt(h, 16));
+
+  // drums: A A A B | A A A C
+  const a = bytes[0] % PATTERNS;
+  const other = (v) => (v % PATTERNS === a ? (a + 1) % PATTERNS : v % PATTERNS);
+  const pick = { A: a, B: other(bytes[1]), C: other(bytes[2]) };
   const hits = [];
-  for (let m = 0; m < MEASURES; m++) for (const [at, drum] of pattern(bytes[m] % PATTERNS)) hits.push({ at: m * MEASURE + at, drum });
+  SHAPE.forEach((x, m) => { for (const [at, drum] of pattern(pick[x])) hits.push({ at: m * MEASURE + at, drum }); });
+
+  // harmony: the progression twice, measure 8 home on I
+  const key = bytes[3] % 12, prog = PROGRESSIONS[bytes[4] % PROGRESSIONS.length];
+  const chords = [...prog, ...prog.slice(0, 3), I].map(([deg, q]) => ({ root: (key + deg) % 12, quality: q }));
+  const style = STYLES[bytes[20] % STYLES.length];
+  const pad = chords.map((c, m) => ({ at: m * MEASURE, dur: MEASURE, midi: TRIAD[c.quality].map((s) => PAD_LOW + c.root + s) }));
+  const bass = [];
+  chords.forEach((c, m) => {
+    for (const [at, n] of BASS[style]) bass.push({ at: m * MEASURE + at, midi: BASS_LOW + c.root + BASS_NOTE[n] });
+  });
+  bass.forEach((b, i) => { b.dur = (i + 1 < bass.length ? bass[i + 1].at : BEATS) - b.at; });
+
+  // wind-ups and targets
   let windups = Array.from({ length: MEASURES }, (_, m) => m).filter((m) => m > 0 && (bytes[10] >> m) & 1);
   if (!windups.length) windups = [MEASURES - 1];
   const cues = windups.map((m) => ({ at: m * MEASURE, lands: m * MEASURE + WAIT, unit: bytes[21 + m] % 3 }));
   const targets = [...CLAPS.map((at) => ({ at, kind: "clap" })), ...cues.map((c) => ({ at: c.lands, kind: "parry" }))]
     .sort((x, y) => x.at - y.at);
+
   const bpm = BPM_MIN + (((bytes[18] << 8) | bytes[19]) % (BPM_MAX - BPM_MIN + 1));
-  return { measures: MEASURES, bpm, style: STYLES[bytes[20] % STYLES.length], hits, cues, targets };
+  return { measures: MEASURES, bpm, style, key, chords, hits, bass, pad, cues, targets };
 }

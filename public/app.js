@@ -1,4 +1,4 @@
-// The page: today's drumbeat from /api/today. The drums play beats 1 to 3 of each measure over a fixed metronome at the
+// The page: today's music from /api/today: drums, a bassline and soft chords, through a little reverb. The drums play beats 1 to 3 of each measure over a fixed metronome at the
 // day's tempo; the metronome is never heard and beat 4 is silent. The player taps beat 4 (the tap plays a clap). Some
 // measures have an enemy wind-up: a cue sound on beat 1, and the attack lands 2 beats later, where the player taps to
 // parry. Every tap is scored against the metronome (score.js). Everything is
@@ -54,20 +54,34 @@ async function load() {
 }
 
 // drums from Web Audio, in three kits (the day's style). Every sound is made here, from oscillators and noise.
+// Everything plays into one bus: a dry path and a reverb (a room made from decaying noise, its size set by the kit),
+// glued by a compressor on the way out.
+const ROOMS = { "hip-hop": [0.6, 0.16], electro: [0.9, 0.14], disco: [1.5, 0.22] };   // [seconds of tail, how much]
+let bus;
+function makeBus() {
+  const [secs, amount] = ROOMS[day.style], len = Math.floor(ctx.sampleRate * secs), ir = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3; }
+  const room = ctx.createConvolver(), wet = ctx.createGain(), glue = ctx.createDynamicsCompressor();
+  room.buffer = ir; wet.gain.value = amount;
+  glue.threshold.value = -18; glue.ratio.value = 3;
+  bus = ctx.createGain();
+  bus.connect(glue); bus.connect(room); room.connect(wet); wet.connect(glue); glue.connect(ctx.destination);
+}
+
 let noiseBuf;
 function noise(t, dur, vol, type, freq) {
   noiseBuf ||= (() => { const b = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; })();
   const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
   src.buffer = noiseBuf; f.type = type; f.frequency.value = freq;
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  src.connect(f).connect(g).connect(ctx.destination); src.start(t); src.stop(t + dur + 0.02);
+  src.connect(f).connect(g).connect(bus); src.start(t); src.stop(t + dur + 0.02);
 }
 // a pitched hit: from f0 down to f1 over drop seconds, fading out over dur
 function tone(t, f0, f1, drop, dur, vol, type = "sine") {
   const o = ctx.createOscillator(), g = ctx.createGain();
   o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + drop);
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + dur + 0.02);
+  o.connect(g).connect(bus); o.start(t); o.stop(t + dur + 0.02);
 }
 const KITS = {
   // dusty and punchy: a round kick with a click, a fat snare, a soft hat
@@ -92,6 +106,29 @@ const KITS = {
     clap: (t) => { for (const d of [0, 0.012, 0.024, 0.036]) noise(t + d, 0.12, 0.45, "bandpass", 1700); },
   },
 };
+// The bass, by kit: [wave, filter cutoff, how fast it fades to its held level]. Each note holds until the next one.
+const hz = (midi) => 440 * 2 ** ((midi - 69) / 12);
+const BASS_SOUND = { "hip-hop": ["sine", 500, 0.4], electro: ["sawtooth", 700, 0.12], disco: ["square", 900, 0.1] };
+function bassNote(t, midi, len) {
+  const [wave, cut, fade] = BASS_SOUND[day.style];
+  const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  o.type = wave; o.frequency.value = hz(midi); f.type = "lowpass"; f.frequency.value = cut;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.32, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.18, t + fade); g.gain.setValueAtTime(0.18, t + Math.max(fade, len - 0.04));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  o.connect(f).connect(g).connect(bus); o.start(t); o.stop(t + len + 0.02);
+}
+// The chords: soft triangle notes that swell in and out over the measure.
+function padChord(t, midis, len) {
+  for (const m of midis) {
+    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = "triangle"; o.frequency.value = hz(m); f.type = "lowpass"; f.frequency.value = 1600;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.035, t + Math.min(0.3, len / 3));
+    g.gain.setValueAtTime(0.035, t + len - 0.2); g.gain.linearRampToValueAtTime(0.0001, t + len);
+    o.connect(f).connect(g).connect(bus); o.start(t); o.stop(t + len + 0.02);
+  }
+}
+
 function drum(kind, t) {
   if (kind === "cue") {                                   // the enemy's wind-up: two rising blips, the same in every kit
     for (const [f, d] of [[660, 0], [990, 0.07]]) tone(t + d, f, f, 0.01, 0.09, 0.12, "square");
@@ -101,11 +138,15 @@ function drum(kind, t) {
 }
 
 function play() {
+  $("reveal").hidden = true;                             // the grid stays hidden while you play: you play by ear
   ctx ||= new AudioContext();
+  bus || makeBus();
   spb = 60 / day.bpm;
   start = ctx.currentTime + 0.15 + COUNT_IN * spb;      // the song's first beat, on the audio clock
   for (const h of day.hits) drum(h.drum, start + h.at * spb);
   for (const c of day.cues) drum("cue", start + c.at * spb);
+  for (const b of day.bass) bassNote(start + b.at * spb, b.midi, b.dur * spb);
+  for (const p of day.pad) padChord(start + p.at * spb, p.midi, p.dur * spb);
   targets = day.targets.map((x) => x.at * spb * 1000);   // ms from the song's first beat
   taps = []; playing = true;
   $("results").innerHTML = ""; $("status").textContent = "";
@@ -167,6 +208,7 @@ function finish() {
   $("status").textContent = `${n("perfect")} perfect, ${n("good")} good, ${n("miss")} missed.` +
     (avg === null ? "" : ` On average ${Math.abs(avg)} ms ${avg < 0 ? "early" : "late"}.`);
   $("play").textContent = "Play again"; $("play").disabled = false; $("tap").disabled = true;
+  $("reveal").hidden = false;                            // the full beat is shown once you've played it
 }
 
 $("play").addEventListener("click", play);

@@ -4,6 +4,12 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.6 — "By Ear"
+**Wed Oct 21, 2026 · 11:30 AM HST**
+
+- The beat is now a short song. The drums loop like real drum parts, A A A B | A A A C: one measure repeats so you can lock in, and measures 4 and 8 are fills. Under them, a bassline and soft chords play a real chord progression in the day's key (six progressions, such as I V vi IV), ending home on measure 8. Nothing new starts on beat 4, so it stays yours. Everything plays through a little reverb, sized to the kit. Removed: 8 unrelated measures, and the bare drums with silence between hits.
+- The beat's grid is hidden until you've played: you play by ear, and the full beat appears with your results. Removed: the grid and its key showing before you play, and the help line ("Clap on 4. Parry 2 beats after a wind-up.").
+
 ## v0.5 — "Your Beat"
 **Wed Oct 21, 2026 · 11:16 AM HST**
 
