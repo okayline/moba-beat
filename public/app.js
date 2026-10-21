@@ -6,6 +6,7 @@
 // your squad flash, which is where the crit will go.
 import { VERSION } from "./version.js";
 import { score } from "./score.js";
+import { setupAccount } from "./account.js";
 
 const $ = (id) => document.getElementById(id);
 $("version").textContent = VERSION;
@@ -218,5 +219,10 @@ async function seal() {
 $("play").addEventListener("click", () => ctx.resume().then(play));
 $("tap").addEventListener("pointerdown", (e) => { e.preventDefault(); tap(); });
 document.addEventListener("keydown", (e) => { if (e.code === "Space" && playing) { e.preventDefault(); tap(); } });
+
+// after logging in or out, today's sealed run may be someone else's: ask again
+setupAccount(async () => {
+  try { const d = await (await fetch("/api/today")).json(); $("sealed").textContent = d.run ? `Today's sealed run: ${d.run.perfect} perfect, ${d.run.good} good, ${d.run.miss} missed.` : ""; } catch {}
+});
 
 load();

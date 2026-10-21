@@ -26,11 +26,38 @@ function fakeD1() {
   return { prepare: (sql) => prep(sql), batch, raw: db };
 }
 const sha = (t) => createHash("sha256").update(t).digest("hex");
+
+// A stand-in for the shared accounts (the Accounts entrypoint of dungeon-items, tested there), copied from
+// clutch-feed-tilt's tests (from scoundrel.exe's): same answers, kept in maps. A "passkey" is any credential { id }.
+function fakeAccounts() {
+  let n = 0; const codes = new Map(), keys = new Map(), links = new Map();
+  const err = (error, status = 400) => ({ error, status });
+  const own = (id) => [...codes].filter(([, v]) => v.acct === id);
+  return {
+    async createAccount() { return { accountId: ++n }; },
+    async addCode(id) { const code = "CODE-" + (codes.size + 1) + "-" + id; codes.set(code, { acct: id, id: codes.size + 1 }); return { code }; },
+    async removeCode(id, cid) { const e = [...codes].find(([, v]) => v.acct === id && v.id === cid); if (!e) return err("No such save code.", 404); codes.delete(e[0]); return { ok: true }; },
+    async loginCode({ code }) { const v = codes.get(code); return v ? { accountId: v.acct } : err("That save code didn't work. Check it and try again.", 404); },
+    async info(id) { return { codes: own(id).map(([, v]) => ({ id: v.id, created_at: 1, last_used_at: null })), passkeys: [...keys].filter(([, v]) => v.acct === id).map(([, v]) => ({ id: v.id, label: v.label })) }; },
+    async waysIn(id) { return own(id).length + [...keys].filter(([, v]) => v.acct === id).length; },
+    async playerFor(id, g) { return { playerId: links.get(id + "|" + g) ?? null }; },
+    async link(id, g, p) {
+      if (links.has(id + "|" + g)) return { playerId: links.get(id + "|" + g), linked: links.get(id + "|" + g) === p };
+      links.set(id + "|" + g, p); return { playerId: p, linked: true };
+    },
+    async accountOf(g, p) { const e = [...links].find(([k, v]) => k.endsWith("|" + g) && v === p); return { accountId: e ? Number(e[0].split("|")[0]) : null }; },
+    async passkeyRegisterOptions({ accountId }) { return { challenge: "c-" + accountId }; },
+    async passkeyRegister({ accountId, credential, label }) { keys.set(credential.id, { acct: accountId, id: keys.size + 1, label }); return { ok: true }; },
+    async passkeyLoginOptions() { return { challenge: "login" }; },
+    async passkeyLogin({ credential }) { const k = keys.get(credential?.id); return k ? { accountId: k.acct } : err("That passkey isn't saved here.", 400); },
+    async passkeyRemove(id, kid) { const e = [...keys].find(([, v]) => v.acct === id && v.id === kid); if (!e) return err("No such passkey.", 404); keys.delete(e[0]); return { ok: true }; },
+  };
+}
 const GENESIS = "0".repeat(64), R1 = "a".repeat(64);
 
 function setup() {
   const DB = fakeD1(), calls = [], waits = [];
-  const env = { DB, REGISTRY: { checkpoint: async (c) => { calls.push(c); return { ok: true, created: true } } } };
+  const env = { DB, ACCOUNTS: fakeAccounts(), REGISTRY: { checkpoint: async (c) => { calls.push(c); return { ok: true, created: true } } } };
   const ctx = { waitUntil: (p) => waits.push(p) };
   globalThis.fetch = async () => ({ json: async () => ({ entries: [{ id: 1, hash: R1, at: 1 }] }) });
   const call = async (path, { body, cookie } = {}) => {
@@ -62,7 +89,8 @@ test("a run is scored by the server against the hidden beat and sealed once a da
     assert.equal(a.status, 200);
     assert.equal(a.sealed, true);
     assert.deepEqual(a.run, want);
-    assert.match(a.cookie, /^mb=[0-9a-f-]{36}; Path=\/; Max-Age=34560000; HttpOnly; Secure; SameSite=Lax$/);
+    assert.match(a.cookie, /^mb=[A-Za-z0-9_-]{43}; Path=\/; Max-Age=34560000; HttpOnly; Secure; SameSite=Lax$/);
+    assert.equal(env.DB.raw.prepare("SELECT token_hash FROM players").get().token_hash, sha(a.cookie.split(";")[0].slice(3)), "only the token's hash is kept");
     const runRec = JSON.stringify({ day, player: 1, taps: taps.map(Math.round), ...want });
     assert.equal(a.hash, sha(t.hash + "|" + runRec), "the run chains from the day entry; the record holds the player's id, never a name");
     assert.deepEqual(env.DB.raw.prepare("SELECT kind, record FROM ledger ORDER BY id").all().map((r) => [r.kind, r.record]), [["day", dayRec], ["run", runRec]]);
@@ -89,12 +117,50 @@ test("a run is scored by the server against the hidden beat and sealed once a da
   } finally { globalThis.fetch = real; }
 });
 
+test("save codes and passkeys: load your player on another device, log out only with a way back in", async () => {
+  const real = globalThis.fetch;
+  try {
+    const { env, call } = setup();
+    assert.equal((await call("/api/account")).player, false, "just looking makes no player");
+    const made = await call("/api/codes", { body: { action: "new" } });
+    const ann = made.cookie.split(";")[0];
+    assert.equal((await call("/api/account", { cookie: ann })).codes.length, 1);
+    assert.equal((await call("/api/load", { body: { code: "WRONG" } })).status, 404);
+    const phone = (await call("/api/load", { body: { code: made.code } })).cookie.split(";")[0];
+    assert.notEqual(phone, ann, "the phone gets its own token");
+    assert.deepEqual([(await call("/api/account", { cookie: phone })).id, (await call("/api/account", { cookie: phone })).devices], [1, 2]);
+    await call("/api/passkey", { body: { action: "register", label: "phone", credential: { id: "key1" } }, cookie: phone });
+    assert.equal((await call("/api/account", { cookie: ann })).passkeys.length, 1);
+    assert.equal((await call("/api/logout", { body: {}, cookie: ann })).status, 200);
+    assert.equal((await call("/api/account", { cookie: ann })).player, false, "logged out");
+    const back = (await call("/api/passkey", { body: { action: "login", credential: { id: "key1" } } })).cookie.split(";")[0];
+    assert.equal((await call("/api/account", { cookie: back })).id, 1);
+    assert.equal(env.DB.raw.prepare("SELECT COUNT(*) AS n FROM players").get().n, 1, "logging in never made a second player");
+    // a browser with no code or passkey can't log out
+    const bo = (await call("/api/run", { body: { day: new Date().toISOString().slice(0, 10), taps: [] } })).cookie.split(";")[0];
+    assert.equal((await call("/api/logout", { body: {}, cookie: bo })).status, 400);
+  } finally { globalThis.fetch = real; }
+});
+
+test("a player from v0.8 (a plain token in the database) is found and upgraded to the hash", async () => {
+  const real = globalThis.fetch;
+  try {
+    const { env, call } = setup();
+    const token = "0123456789abcdef0123456789abcdef";
+    env.DB.raw.prepare("INSERT INTO players (token_hash, created_at) VALUES (?, 1)").run(token);
+    assert.equal((await call("/api/account", { cookie: "mb=" + token })).id, 1);
+    assert.equal(env.DB.raw.prepare("SELECT token_hash FROM players").get().token_hash, sha(token));
+    assert.equal((await call("/api/account", { cookie: "mb=" + token })).id, 1, "and found by the hash after that");
+  } finally { globalThis.fetch = real; }
+});
+
 test("the migrations build the same tables as schema.sql", () => {
   const fresh = new DatabaseSync(":memory:"), old = new DatabaseSync(":memory:");
   fresh.exec(readFileSync(new URL("../schema.sql", import.meta.url), "utf8"));
   // the ledger table came first, straight from schema.sql (v0.1); then the migrations
   old.exec(readFileSync(new URL("../schema.sql", import.meta.url), "utf8").split("-- v0.8")[0]);
-  old.exec(readFileSync(new URL("../migrations/001_runs.sql", import.meta.url), "utf8"));
-  const shape = (d) => d.prepare("SELECT name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name").all().map((r) => r.name);
+  for (const m of ["001_runs.sql", "002_accounts.sql"]) old.exec(readFileSync(new URL("../migrations/" + m, import.meta.url), "utf8"));
+  const shape = (d) => d.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'index') AND name NOT LIKE 'sqlite_%' ORDER BY name").all()
+    .map((r) => r.name + ":" + d.prepare(`SELECT group_concat(name || ' ' || type || ' ' || "notnull", ',') AS c FROM pragma_table_info('${r.name}')`).get().c);
   assert.deepEqual(shape(old), shape(fresh));
 });

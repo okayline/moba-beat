@@ -136,3 +136,19 @@ h1 { font-size: clamp(1.6rem, 5vw, 2.2rem); font-weight: 800; letter-spacing: -0
   .entries li { grid-template-columns: 2.6em 1fr; }
   .entries .hash { grid-column: 2; }
 }
+
+/* the account panel */
+.top .right { display: flex; gap: 14px; align-items: baseline; }
+.link { font: inherit; color: var(--you); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.account { background: var(--lane); border-radius: 16px; padding: 16px; margin-bottom: 20px; display: grid; gap: 12px; }
+.account[hidden] { display: none; }
+.account .acct-head { display: flex; justify-content: space-between; align-items: baseline; }
+.account h2 { margin: 0; font-size: 1.3rem; }
+.account h3 { margin: 0 0 8px; font-size: 1rem; }
+.account .m { color: var(--muted); margin: 0; line-height: 1.5; }
+.account .p { background: var(--floor); border-radius: 12px; padding: 12px; display: grid; gap: 8px; justify-items: start; }
+.account .p.gold { box-shadow: inset 0 0 0 2px var(--strong); }
+.account .code { font: 700 1.1rem ui-monospace, monospace; letter-spacing: 0.04em; word-break: break-all; }
+.account .r { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; width: 100%; justify-content: space-between; }
+.account button:not(.link) { font: inherit; color: var(--ink); background: var(--lane); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.account input { font: inherit; color: var(--ink); background: var(--lane); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; flex: 1; min-width: 0; }

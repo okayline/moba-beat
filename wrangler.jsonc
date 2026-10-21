@@ -9,8 +9,9 @@
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"]
   },
-  // the shared registry (the dungeon-items Worker, `Registry` entrypoint): checkpoints of this ledger
+  // the shared accounts and registry (the dungeon-items Worker): save codes and passkeys, and checkpoints of this ledger
   "services": [
+    { "binding": "ACCOUNTS", "service": "dungeon-items", "entrypoint": "Accounts" },
     { "binding": "REGISTRY", "service": "dungeon-items", "entrypoint": "Registry" }
   ],
   "d1_databases": [

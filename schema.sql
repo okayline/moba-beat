@@ -10,11 +10,11 @@ CREATE TABLE IF NOT EXISTS ledger (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ledger_one_day ON ledger (day) WHERE kind = 'day';
 
--- v0.8: players and runs (migrations/001_runs.sql). A player is a random token in a cookie. One sealed run per player
--- per UTC day.
+-- v0.8: players and runs (migrations/001_runs.sql). A player is a random token in a cookie; only its SHA-256 is kept
+-- (v0.9, migrations/002_accounts.sql). One sealed run per player per UTC day.
 CREATE TABLE IF NOT EXISTS players (
   id          INTEGER PRIMARY KEY,
-  token       TEXT NOT NULL UNIQUE,
+  token_hash  TEXT NOT NULL UNIQUE,
   created_at  INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS runs (
@@ -26,4 +26,20 @@ CREATE TABLE IF NOT EXISTS runs (
   miss        INTEGER NOT NULL,
   created_at  INTEGER NOT NULL,
   UNIQUE (player_id, day)
+);
+
+-- v0.9: save codes and passkeys through the shared Accounts (migrations/002_accounts.sql). Devices loaded later each
+-- have their own hashed cookie token here.
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash  TEXT PRIMARY KEY,
+  player_id   INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  created_at  INTEGER NOT NULL,
+  seen_at     INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS sessions_player ON sessions (player_id);
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key           TEXT NOT NULL,
+  window_start  INTEGER NOT NULL,
+  count         INTEGER NOT NULL,
+  PRIMARY KEY (key, window_start)
 );

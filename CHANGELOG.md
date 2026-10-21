@@ -4,6 +4,11 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.9 — "Same You"
+**Wed Oct 21, 2026 · 12:01 PM HST**
+
+- Account: make a save code or add a passkey, and log in with either on another browser or device to keep your player and your sealed runs. They're the same save codes and passkeys as the other 88x31 games. You can log out of a browser once you have one. Removed: the plain cookie token in the database; only its fingerprint is kept now, and your existing player carries over.
+
 ## v0.8 — "On the Record"
 **Wed Oct 21, 2026 · 11:52 AM HST**
 
