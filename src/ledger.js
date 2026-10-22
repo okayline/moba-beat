@@ -20,17 +20,42 @@ export async function head(db) {
   return h ? h.hash : GENESIS;
 }
 
+// Two requests can read the same head at once; prev_hash UNIQUE lets only one of them build on it. The other one is
+// sealed again on the new head (seal's retry is copied from dawn-baton src/ledger.js).
+const chainClash = (e) => /UNIQUE/i.test(String(e && e.message)) && /ledger\.(prev_)?hash/.test(String(e.message));
+const anyUnique = (e) => /UNIQUE/i.test(String(e && e.message));
+
+// Seal on the current head. `build(prev)` gives { hash, stmts }: the ledger insert chained from prev and anything to
+// go in the same D1 batch. Returns { hash }, or { duplicate: true } if another unique index says it's already there
+// (that day's entry, that player's run that day).
+export async function seal(db, build) {
+  for (let i = 0; i < 8; i++) {
+    const { hash, stmts } = await build(await head(db));
+    try { await db.batch(stmts); return { hash }; }
+    catch (e) {
+      if (chainClash(e)) continue;
+      if (anyUnique(e)) return { duplicate: true };
+      throw e;
+    }
+  }
+  throw new Error("The ledger is busy. Try again.");
+}
+
 // The day's entry: { hash, sealed }, sealing it first if it isn't on the chain yet (sealed is true only then).
 // `day` is "YYYY-MM-DD", `getRegistryHead` is an async function giving the registry's head hash at 00:00 UTC that day,
 // called only when the day is sealed.
+const dayHash = (db, day) => db.prepare("SELECT hash FROM ledger WHERE kind = 'day' AND day = ?").bind(day).first();
 export async function dayEntry(db, day, getRegistryHead, t) {
-  const got = await db.prepare("SELECT hash FROM ledger WHERE kind = 'day' AND day = ?").bind(day).first();
+  const got = await dayHash(db, day);
   if (got) return { hash: got.hash, sealed: false };
   const record = JSON.stringify({ day, registry: await getRegistryHead() });
-  const prev = await head(db), hash = await sha256(prev + "|" + record);
-  await db.prepare("INSERT INTO ledger (kind, day, record, prev_hash, hash, created_at) VALUES ('day', ?, ?, ?, ?, ?)")
-    .bind(day, record, prev, hash, t).run();
-  return { hash, sealed: true };
+  const r = await seal(db, async (prev) => {
+    const hash = await sha256(prev + "|" + record);
+    return { hash, stmts: [db.prepare("INSERT INTO ledger (kind, day, record, prev_hash, hash, created_at) VALUES ('day', ?, ?, ?, ?, ?)")
+      .bind(day, record, prev, hash, t)] };
+  });
+  if (r.duplicate) return { hash: (await dayHash(db, day)).hash, sealed: false };   // another request sealed the day first
+  return { hash: r.hash, sealed: true };
 }
 
 // The insert for a run's entry, chained from `prev`, for the same D1 batch as the run's row.

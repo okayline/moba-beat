@@ -6,7 +6,7 @@
 // your squad flash, which is where the crit will go.
 import { VERSION } from "./version.js";
 import { TAP, KIT_DRUMS, HAT_RATE } from "./beat.js";
-import { score } from "./score.js";
+import { MAX_TAPS, score } from "./score.js";
 import { setupAccount } from "./account.js";
 
 const $ = (id) => document.getElementById(id);
@@ -134,10 +134,13 @@ function frame() {
   raf = requestAnimationFrame(frame);
 }
 
+// A tap is timed by when you heard the beat: the audio clock less the device's output delay (what Bluetooth headphones
+// add, for one), where the browser reports it. Taps past MAX_TAPS aren't counted (the server takes no more).
+const heardLate = () => (ctx.baseLatency || 0) + (ctx.outputLatency || 0);
 function tap() {
   if (!playing) return;
-  const ms = (ctx.currentTime - start) * 1000;
-  taps.push(ms);
+  const ms = Math.round((ctx.currentTime - heardLate() - start) * 1000);
+  if (taps.length < MAX_TAPS) taps.push(ms);
   sample(TAP[day.style], ctx.currentTime);
   $("tap").classList.add("hit"); setTimeout(() => $("tap").classList.remove("hit"), 90);
   // judge against the nearest target now, so a good tap lands right away
@@ -180,7 +183,7 @@ async function seal() {
 
 $("play").addEventListener("click", () => ctx.resume().then(play));
 $("tap").addEventListener("pointerdown", (e) => { e.preventDefault(); tap(); });
-document.addEventListener("keydown", (e) => { if (e.code === "Space" && playing) { e.preventDefault(); tap(); } });
+document.addEventListener("keydown", (e) => { if (e.code === "Space" && playing) { e.preventDefault(); if (!e.repeat) tap(); } });   // holding Space is one tap, not one every key repeat
 
 // after logging in or out, today's sealed run may be someone else's: ask again
 setupAccount(async () => {

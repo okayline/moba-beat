@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import worker from "../src/worker.js";
-import { beat } from "../public/beat.js";
+import { score } from "../public/score.js";
 
 // a tiny D1 lookalike (copied from clutch-feed-tilt test/worker.test.mjs)
 function fakeD1() {
@@ -59,11 +59,11 @@ function setup() {
   const DB = fakeD1(), calls = [], waits = [];
   const env = { DB, ACCOUNTS: fakeAccounts(), REGISTRY: { checkpoint: async (c) => { calls.push(c); return { ok: true, created: true } } } };
   const ctx = { waitUntil: (p) => waits.push(p) };
-  globalThis.fetch = async () => ({ json: async () => ({ entries: [{ id: 1, hash: R1, at: 1 }] }) });
-  const call = async (path, { body, cookie } = {}) => {
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ entries: [{ id: 1, hash: R1, at: 1 }] }) });
+  const call = async (path, { body, cookie, ip } = {}) => {
     const r = await worker.fetch(new Request("https://x" + path, {
-      method: body ? "POST" : "GET", headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
-      ...(body ? { body: JSON.stringify(body) } : {}),
+      method: body ? "POST" : "GET", headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}), ...(ip ? { "cf-connecting-ip": ip } : {}) },
+      ...(body ? { body: typeof body === "string" ? body : JSON.stringify(body) } : {}),
     }), env, ctx);
     await Promise.all(waits.splice(0));
     return { status: r.status, cookie: r.headers.get("set-cookie"), ...(await r.json()) };
@@ -163,4 +163,77 @@ test("the migrations build the same tables as schema.sql", () => {
   const shape = (d) => d.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'index') AND name NOT LIKE 'sqlite_%' ORDER BY name").all()
     .map((r) => r.name + ":" + d.prepare(`SELECT group_concat(name || ' ' || type || ' ' || "notnull", ',') AS c FROM pragma_table_info('${r.name}')`).get().c);
   assert.deepEqual(shape(old), shape(fresh));
+});
+
+test("two runs sealed at the same moment both land on the chain, one after the other", async () => {
+  const real = globalThis.fetch;
+  try {
+    const { env, call } = setup();
+    const day = new Date().toISOString().slice(0, 10);
+    const [a, b] = await Promise.all([call("/api/today"), call("/api/today")]);
+    assert.equal(a.hash, b.hash, "the day is sealed once even when two first visits race");
+    const runs = await Promise.all([call("/api/run", { body: { day, taps: [] }, ip: "1.1.1.1" }), call("/api/run", { body: { day, taps: [] }, ip: "2.2.2.2" })]);
+    assert.deepEqual(runs.map((r) => [r.status, r.sealed]), [[200, true], [200, true]]);
+    const rows = env.DB.raw.prepare("SELECT kind, prev_hash, hash FROM ledger ORDER BY id").all();
+    assert.deepEqual(rows.map((r) => r.kind), ["day", "run", "run"]);
+    assert.deepEqual([rows[1].prev_hash, rows[2].prev_hash], [rows[0].hash, rows[1].hash], "the second run was sealed again on the first one");
+  } finally { globalThis.fetch = real; }
+});
+
+test("a fourth new player from one address in an hour is turned away, and nothing is sealed for it", async () => {
+  const real = globalThis.fetch;
+  try {
+    const { env, call } = setup();
+    const day = new Date().toISOString().slice(0, 10);
+    for (let i = 0; i < 3; i++) assert.equal((await call("/api/run", { body: { day, taps: [] }, ip: "9.9.9.9" })).status, 200);
+    const r = await call("/api/run", { body: { day, taps: [] }, ip: "9.9.9.9" });
+    assert.equal(r.status, 429);
+    assert.equal((await call("/api/codes", { body: { action: "new" }, ip: "9.9.9.9" })).status, 429, "a save code doesn't make one either");
+    assert.equal((await call("/api/run", { body: { day, taps: [] }, ip: "8.8.8.8" })).status, 200, "another address still can");
+    assert.deepEqual([env.DB.raw.prepare("SELECT COUNT(*) AS n FROM players").get().n, env.DB.raw.prepare("SELECT COUNT(*) AS n FROM ledger WHERE kind = 'run'").get().n], [4, 4]);
+  } finally { globalThis.fetch = real; }
+});
+
+test("the checkpoint sends the newest id and hash, and nothing when the newest entry doesn't chain", async () => {
+  const real = globalThis.fetch;
+  try {
+    const { env, call, calls } = setup();
+    const day = new Date().toISOString().slice(0, 10);
+    await call("/api/today");
+    const a = await call("/api/run", { body: { day, taps: [] }, ip: "1.1.1.1" });
+    assert.deepEqual(calls.at(-1), { game: "moba-beat", entries: 2, head: a.hash });
+    env.DB.raw.prepare("UPDATE ledger SET record = '{}' WHERE id = 2").run();
+    const n = calls.length;
+    await call("/api/run", { body: { day, taps: [] }, ip: "2.2.2.2" });
+    assert.equal(calls.length, n + 1, "the third entry chains from the second as it stands, so it's sent");
+    env.DB.raw.prepare("UPDATE ledger SET record = '{}' WHERE id = 3").run();
+    const { checkpoint } = await import("../src/worker.js");
+    await checkpoint(env);
+    assert.equal(calls.length, n + 1, "a newest entry whose hash is wrong is not sent");
+  } finally { globalThis.fetch = real; }
+});
+
+test("taps are rounded to whole ms before scoring, so the sealed taps give the sealed score", async () => {
+  const real = globalThis.fetch;
+  try {
+    const { env, call } = setup();
+    const t = await call("/api/today"), day = t.day, spb = 60000 / t.bpm;
+    const taps = t.targets.map((x, i) => x.at * spb + 34.5 + i / 7);   // around the 35 ms edge, never whole
+    const a = await call("/api/run", { body: { day, taps } });
+    const rec = JSON.parse(env.DB.raw.prepare("SELECT record FROM ledger WHERE kind = 'run'").get().record);
+    assert.ok(rec.taps.every(Number.isInteger));
+    const again = score(t.targets.map((x) => x.at * spb), rec.taps), n = (g) => again.filter((r) => r.grade === g).length;
+    assert.deepEqual(a.run, { perfect: n("perfect"), good: n("good"), miss: n("miss") });
+  } finally { globalThis.fetch = real; }
+});
+
+test("a body that isn't an object is a 400; a registry that's away is a 503 and seals nothing", async () => {
+  const real = globalThis.fetch;
+  try {
+    const { env, call } = setup();
+    assert.equal((await call("/api/run", { body: "null" })).status, 400);
+    globalThis.fetch = async () => ({ ok: false, status: 502, json: async () => ({}) });
+    assert.equal((await call("/api/today")).status, 503);
+    assert.equal(env.DB.raw.prepare("SELECT COUNT(*) AS n FROM ledger").get().n, 0);
+  } finally { globalThis.fetch = real; }
 });

@@ -4,6 +4,18 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.9.5 — "Steady Hands"
+**Wed Oct 21, 2026 · 7:35 PM HST**
+
+- Your taps are timed by when you hear the beat: the delay your speakers or headphones add (where the browser reports it) is taken off. Removed: timing taps by when the sound left the page, which made every tap late by that delay.
+- Holding Space is one tap. Removed: a tap for every key repeat while Space was held down.
+- The page stops counting after 128 taps, the most a run can send. Removed: runs with more than 128 taps being turned away whole, sealed run and all.
+- Two runs finished at the same moment are both sealed, and two first visits of a new day seal it once. Removed: the "Something broke" error (and the lost run) when that happened.
+- A run's taps are rounded to whole milliseconds before they are scored, so the taps on the ledger always give the score on the ledger. Removed: scoring the unrounded taps and sealing the rounded ones, which could disagree by one grade.
+- One address can make 3 new players an hour. Removed: making any number of new players, each with a sealed run.
+- The game's checkpoint in the shared registry reads only the two newest ledger entries. Removed: reading and checking the whole ledger after every sealed run (the "Check the chain" button on the ledger page still checks it all).
+- If the registry can't be read at midnight, the page says today's beat isn't ready yet and the next visit tries again. Removed: the "Something broke" error, and waiting with no time limit.
+
 ## v0.9.4 — "More Sounds"
 **Wed Oct 21, 2026 · 6:00 PM HST**
 
