@@ -5,7 +5,7 @@
 // scheduled on the Web Audio clock, and taps are timed on the same clock. The fight isn't built yet; a good tap makes
 // your squad flash, which is where the crit will go.
 import { VERSION } from "./version.js";
-import { TAP, KIT_DRUMS, THUMP_KITS, HAT_RATE } from "./beat.js";
+import { TAP, KIT_DRUMS, HAT_RATE } from "./beat.js";
 import { score } from "./score.js";
 import { setupAccount } from "./account.js";
 
@@ -63,7 +63,7 @@ async function load() {
   $("play").disabled = false;
 }
 
-// Sounds: the drums are samples; the enemy's cue and the house kick are made here from oscillators.
+// Sounds: the drums are samples; the enemy's cue is a sample too (samples/cue.wav).
 // Everything plays into one bus: a dry path and a reverb (a room made from decaying noise, its size set by the kit),
 // glued by a compressor on the way out.
 const ROOMS = { "hip-hop": [0.6, 0.16], house: [0.9, 0.14], bounce: [0.8, 0.12], "tech-house": [0.6, 0.1] };   // [seconds of tail, how much]
@@ -78,18 +78,12 @@ function makeBus() {
   bus.connect(glue); bus.connect(room); room.connect(wet); wet.connect(glue); glue.connect(ctx.destination);
 }
 
-// a pitched hit: from f0 down to f1 over drop seconds, fading out over dur
-function tone(t, f0, f1, drop, dur, vol, type = "sine") {
-  const o = ctx.createOscillator(), g = ctx.createGain();
-  o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + drop);
-  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  o.connect(g).connect(bus); o.start(t); o.stop(t + dur + 0.02);
-}
 // The drums are recorded one-shots (public/samples, CC0), the day's pick of each kit's recordings, loaded with the day's beat.
 const SAMPLES = {};
 async function loadSamples() {
-  await Promise.all(KIT_DRUMS[day.style].map(async (d) => {
-    const r = await fetch(`samples/${day.style}/${d}-${day.voice[d] + 1}.wav`);
+  const files = [...KIT_DRUMS[day.style].map((d) => [d, `samples/${day.style}/${d}-${day.voice[d] + 1}.wav`]), ["cue", "samples/cue.wav"]];
+  await Promise.all(files.map(async ([d, url]) => {
+    const r = await fetch(url);
     if (!r.ok) throw new Error(d);
     SAMPLES[d] = await ctx.decodeAudioData(await r.arrayBuffer());
   }));
@@ -101,21 +95,12 @@ function sample(kind, t, vol = 0.9) {
   src.connect(g).connect(bus); src.start(t);
 }
 
-function drum(kind, t) {
-  if (kind === "cue") {                                   // the enemy's wind-up: two rising blips, the same in every kit
-    for (const [f, d] of [[660, 0], [990, 0.07]]) tone(t + d, f, f, 0.01, 0.09, 0.12, "square");
-    return;
-  }
-  if (kind === "kick" && THUMP_KITS.includes(day.style)) return tone(t, 150, 45, 0.08, 0.3, 0.9);   // a low thump, the same every time
-  sample(kind, t);
-}
-
 function play() {
   $("reveal").hidden = true;                             // the grid stays hidden while you play: you play by ear
   spb = 60 / day.bpm;
   start = ctx.currentTime + 0.15 + COUNT_IN * spb;      // the song's first beat, on the audio clock
-  for (const h of day.hits) drum(h.drum, start + h.at * spb);
-  for (const c of day.cues) drum("cue", start + c.at * spb);
+  for (const h of day.hits) sample(h.drum, start + h.at * spb);
+  for (const c of day.cues) sample("cue", start + c.at * spb, 0.6);
   targets = day.targets.map((x) => x.at * spb * 1000);   // ms from the song's first beat
   taps = []; playing = true;
   $("results").innerHTML = ""; $("status").textContent = ""; $("sealed").textContent = "";
@@ -153,7 +138,7 @@ function tap() {
   if (!playing) return;
   const ms = (ctx.currentTime - start) * 1000;
   taps.push(ms);
-  drum(TAP[day.style], ctx.currentTime);
+  sample(TAP[day.style], ctx.currentTime);
   $("tap").classList.add("hit"); setTimeout(() => $("tap").classList.remove("hit"), 90);
   // judge against the nearest target now, so a good tap lands right away
   const near = targets.reduce((a, t, i) => (Math.abs(t - ms) < Math.abs(targets[a] - ms) ? i : a), 0);

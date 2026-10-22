@@ -54,11 +54,10 @@ export const TEMPO = { "hip-hop": [80, 100], house: [128, 128], bounce: [90, 100
 export const CLAPS = Array.from({ length: MEASURES }, (_, m) => m * MEASURE + 3);   // beat 4 of each measure (0-based)
 export const STYLES = ["hip-hop", "house", "bounce", "tech-house"];
 export const TAP = { "hip-hop": "snare", house: "kick", bounce: "clap", "tech-house": "kick" };   // what the player's tap on beat 4 plays: the backbeat's 4, the fourth kick, a clap
-export const KIT_DRUMS = { "hip-hop": ["kick", "snare", "hat"], house: ["snare", "hat"], bounce: ["kick", "clap", "hat", "open"], "tech-house": ["kick", "clap", "hat", "open"] };   // the samples each kit loads
-export const VOICES = { "hip-hop": { kick: 3, snare: 3, hat: 1 }, house: { snare: 3, hat: 1 }, bounce: { kick: 3, clap: 1, hat: 1, open: 1 }, "tech-house": { kick: 3, clap: 1, hat: 1, open: 1 } };   // how many recordings each kit has of each drum (samples/<kit>/<drum>-<n>.wav, n from 1)
+export const KIT_DRUMS = { "hip-hop": ["kick", "snare", "hat"], house: ["kick", "snare", "hat"], bounce: ["kick", "clap", "hat", "open"], "tech-house": ["kick", "clap", "hat", "open"] };   // the samples each kit loads
+export const VOICES = { "hip-hop": { kick: 3, snare: 3, hat: 1 }, house: { kick: 1, snare: 3, hat: 1 }, bounce: { kick: 3, clap: 1, hat: 1, open: 1 }, "tech-house": { kick: 3, clap: 1, hat: 1, open: 1 } };   // how many recordings each kit has of each drum (samples/<kit>/<drum>-<n>.wav, n from 1)
 export const VOICE_BYTE = { kick: 5, snare: 6, clap: 7, hat: 8, open: 9 };   // the byte that picks the day's recording of each drum
 export const HAT_RATE = { "hip-hop": 1, house: 1.2, bounce: 0.9, "tech-house": 1.1 };   // the hats of three packs are the same recording, so each kit plays it at its own pitch
-export const THUMP_KITS = ["house"];                      // kits whose kick is a made thump (a low sine that drops), not a sample
 export const WAIT = 2;                                    // beats from a wind-up's cue to where it lands
 export const SHAPE = ["A", "A", "A", "B", "A", "A", "A", "C"];
 

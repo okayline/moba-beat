@@ -9,6 +9,7 @@ Newest first. Times are Hawaii time (HST).
 
 - Each day now picks which recording of each drum its kit plays: 3 kicks and 3 snares in hip-hop, 3 snares in house, 3 kicks in bounce and tech house. Removed: the single fixed kick, snare, clap and hat per kit (those 13 sample files are replaced by the new ones).
 - Every kit's drums come from its own pack: hip-hop from the soulful vintage pack, bounce from the bounce pack, tech house and the house snares from the hard-trap pack. Removed: house, bounce and tech house sharing the bounce pack's hi-hat; they still share one hi-hat recording, so each kit plays it at its own pitch (house higher, bounce lower, tech house slightly higher).
+- No sound is made in the browser any more; every sound is a recording. The house kick is now a low 808 kick (the pack's 808-bass-sub, cut to 0.3 s) and the enemy's wind-up cue is a cowbell hit (cut to 0.35 s), the same in every kit. Removed: the synthesized house thump and the two square-wave cue beeps (all browser oscillator code).
 - The chord pad is out of the game: no chord is played, in any kit, from the first measure on. Removed: the synth pad (its code, and the pad notes the day made); the key and chords stay as the day's record on the ledger page.
 
 ## v0.9.3 — "Kick Alone"

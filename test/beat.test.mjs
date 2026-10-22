@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { beat, pattern, PROGRESSIONS, STYLES, TAP, KIT_DRUMS, THUMP_KITS, VOICES } from "../public/beat.js";
+import { beat, pattern, PROGRESSIONS, STYLES, TAP, KIT_DRUMS, VOICES } from "../public/beat.js";
 import { score, grade } from "../public/score.js";
 
 const hex = (bytes) => bytes.map((b) => b.toString(16).padStart(2, "0")).join("").padEnd(64, "0");
@@ -45,6 +45,8 @@ test("no drum on beat 4 in any kit, no pad is played, and every progression's fi
   }
   for (const p of PROGRESSIONS) assert.ok([5, 7].includes(p[3][0]), "measure 4 is IV or V");
 });
+
+test("the enemy cue is a sample file", () => assert.ok(existsSync("public/samples/cue.wav")));
 
 test("the day picks one recording of each drum from bytes 5 to 9, mod how many the kit has", () => {
   // bytes 5..9 = kick 4, snare 5, clap 6, hat 7, open 8; hip-hop has 3 kicks and 3 snares, 1 hat: 4%3 = 1, 5%3 = 2, 7%1 = 0
@@ -161,10 +163,10 @@ test("a tech-house day: a kick on 1, 2 and 3, a clap on 2, hats only on the off-
     ["0kick", "0.5hat", "0.5open", "1kick", "1clap", "1.5hat", "2kick", "2.5hat"].sort());
 });
 
-test("every kit has a tap sound that is one of its own samples or its made thump", () => {
+test("every kit has a tap sound that is one of its own samples", () => {
   assert.deepEqual(Object.keys(TAP).sort(), [...STYLES].sort());
   assert.deepEqual(STYLES.map((s) => TAP[s]), ["snare", "kick", "clap", "kick"]);
-  for (const k of STYLES) assert.ok(KIT_DRUMS[k].includes(TAP[k]) || (TAP[k] === "kick" && THUMP_KITS.includes(k)), k);
+  for (const k of STYLES) assert.ok(KIT_DRUMS[k].includes(TAP[k]), k);
 });
 
 test("the same hash gives the same beat, another hash another beat", () => {
