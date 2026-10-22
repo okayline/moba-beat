@@ -31,10 +31,13 @@
 //   byte 3           the key: value mod 12 semitones above C
 //   byte 4           the progression (PROGRESSIONS, value mod their number)
 //
-// The chords are held softly under everything for the whole measure.
+// The chords are held softly under everything for the whole measure. Measure 7 is always V and measure 8 always I, so
+// the song ends on V to I.
 //
 //   bytes 18, 19     as one number, mod the size of the kit's tempo range (TEMPO): the tempo above its low end
 //                    (hip-hop 80 to 100, house always 128, bounce 90 to 100, tech-house always 128)
+//   bytes 5 to 9     which recording of each drum the kit plays today (kick, snare, clap, hat, open: VOICE_BYTE, value mod
+//                    how many the kit has, VOICES)
 //   byte 20          the day's kit (STYLES, value mod 4): hip-hop, house, bounce or tech-house
 //
 // ENEMY WIND-UPS (cue, then wait): in any measure but the first, an enemy may wind up on beat 1 with a cue sound; the
@@ -53,6 +56,9 @@ export const CLAPS = Array.from({ length: MEASURES }, (_, m) => m * MEASURE + 3)
 export const STYLES = ["hip-hop", "house", "bounce", "tech-house"];
 export const TAP = { "hip-hop": "snare", house: "kick", bounce: "clap", "tech-house": "kick" };   // what the player's tap on beat 4 plays: the backbeat's 4, the fourth kick, a clap
 export const KIT_DRUMS = { "hip-hop": ["kick", "snare", "hat"], house: ["snare", "hat"], bounce: ["kick", "clap", "hat", "open"], "tech-house": ["kick", "clap", "hat", "open"] };   // the samples each kit loads
+export const VOICES = { "hip-hop": { kick: 3, snare: 3, hat: 1 }, house: { snare: 3, hat: 1 }, bounce: { kick: 3, clap: 1, hat: 1, open: 1 }, "tech-house": { kick: 3, clap: 1, hat: 1, open: 1 } };   // how many recordings each kit has of each drum (samples/<kit>/<drum>-<n>.wav, n from 1)
+export const VOICE_BYTE = { kick: 5, snare: 6, clap: 7, hat: 8, open: 9 };   // the byte that picks the day's recording of each drum
+export const HAT_RATE = { "hip-hop": 1, house: 1.2, bounce: 0.9, "tech-house": 1.1 };   // the hats of three packs are the same recording, so each kit plays it at its own pitch
 export const THUMP_KITS = ["house"];                      // kits whose kick is a made thump (a low sine that drops), not a sample
 export const WAIT = 2;                                    // beats from a wind-up's cue to where it lands
 export const SHAPE = ["A", "A", "A", "B", "A", "A", "A", "C"];
@@ -162,7 +168,7 @@ export function beat(hash) {
 
   // harmony: the progression twice, measure 8 home on I
   const key = bytes[3] % 12, prog = PROGRESSIONS[bytes[4] % PROGRESSIONS.length];
-  const chords = [...prog, ...prog.slice(0, 3), I].map(([deg, q]) => ({ root: (key + deg) % 12, quality: q }));
+  const chords = [...prog, ...prog.slice(0, 2), V, I].map(([deg, q]) => ({ root: (key + deg) % 12, quality: q }));
   const pad = chords.map((c, m) => ({ at: m * MEASURE, dur: MEASURE, midi: TRIAD[c.quality].map((s) => PAD_LOW + c.root + s) }));
 
   // wind-ups and targets
@@ -174,5 +180,6 @@ export function beat(hash) {
 
   const [lo, hi] = TEMPO[style];
   const bpm = lo + (((bytes[18] << 8) | bytes[19]) % (hi - lo + 1));
-  return { measures: MEASURES, bpm, style, key, chords, hits, pad, cues, targets };
+  const voice = Object.fromEntries(KIT_DRUMS[style].map((d) => [d, bytes[VOICE_BYTE[d]] % VOICES[style][d]]));
+  return { measures: MEASURES, bpm, style, voice, key, chords, hits, pad, cues, targets };
 }

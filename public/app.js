@@ -5,7 +5,7 @@
 // scheduled on the Web Audio clock, and taps are timed on the same clock. The fight isn't built yet; a good tap makes
 // your squad flash, which is where the crit will go.
 import { VERSION } from "./version.js";
-import { TAP, KIT_DRUMS, THUMP_KITS } from "./beat.js";
+import { TAP, KIT_DRUMS, THUMP_KITS, HAT_RATE } from "./beat.js";
 import { score } from "./score.js";
 import { setupAccount } from "./account.js";
 
@@ -85,11 +85,11 @@ function tone(t, f0, f1, drop, dur, vol, type = "sine") {
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   o.connect(g).connect(bus); o.start(t); o.stop(t + dur + 0.02);
 }
-// The drums are recorded one-shots (public/samples, CC0), one set per kit, loaded with the day's beat.
+// The drums are recorded one-shots (public/samples, CC0), the day's pick of each kit's recordings, loaded with the day's beat.
 const SAMPLES = {};
 async function loadSamples() {
   await Promise.all(KIT_DRUMS[day.style].map(async (d) => {
-    const r = await fetch(`samples/${day.style}/${d}.wav`);
+    const r = await fetch(`samples/${day.style}/${d}-${day.voice[d] + 1}.wav`);
     if (!r.ok) throw new Error(d);
     SAMPLES[d] = await ctx.decodeAudioData(await r.arrayBuffer());
   }));
@@ -97,6 +97,7 @@ async function loadSamples() {
 function sample(kind, t, vol = 0.9) {
   const src = ctx.createBufferSource(), g = ctx.createGain();
   src.buffer = SAMPLES[kind]; g.gain.value = vol;
+  if (kind === "hat" || kind === "open") src.playbackRate.value = HAT_RATE[day.style];
   src.connect(g).connect(bus); src.start(t);
 }
 
