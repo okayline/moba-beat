@@ -1,9 +1,11 @@
 // The fight rules, as a pure function. Not wired into the page or the Worker yet.
 //
 // Two sides, each with one health bar shared by its 3 heroes. The turns alternate, one measure each: side 0 (you) on turns
-// 0, 2, 4 ..., side 1 (the ghost) on turns 1, 3, 5 .... On its turn a side hits one of three abilities on beat 4 and the grade of
-// its tap (score.js: perfect, good or miss) sets how strong it is. The other side taps to parry; its grade
-// is the parry. The heroes only decide who is shown acting (hero 1, 2, 3, then 1 again): they have no stats.
+// 0, 2, 4 ..., side 1 (the ghost) on turns 1, 3, 5 .... On its turn a side presses one of three buttons on beat 4: the
+// button is the ability, and any hero can use any of them. The grade of the press (score.js: perfect, good or miss) sets
+// how strong it is. The other side presses to parry; its grade is the parry. The heroes act in turn (hero 1, 2, 3, then
+// hero 1 again) and each one levels up from its own presses: a perfect gives it 1 level, a good half a level, a miss none.
+// A level makes that hero's ability stronger the next time it acts.
 //
 //   CLUTCH   hits the other side's bar
 //   FEED     refills the acting side's own bar
