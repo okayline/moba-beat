@@ -22,27 +22,32 @@ export const HEROES = 3;
 export const CLUTCH_HIT = { perfect: 20, good: 10, miss: 0 };    // damage
 export const FEED_HEAL = { perfect: 12, good: 6, miss: 0 };      // bar refilled
 export const TILT_WEAKEN = { perfect: 0.5, good: 0.75, miss: 1 };  // what the other side's next CLUTCH is multiplied by
+export const LEVEL_UP = { perfect: 1, good: 0.5, miss: 0 };   // levels a hero gains from its tap
+export const LEVEL_BONUS = 0.1;                                // each level makes the hero's ability this much stronger
 export const PARRY_LETS_THROUGH = { perfect: 0, good: 0.5, miss: 1 };   // the share of CLUTCH or TILT that gets through
 
 // turns: [{ ability: "CLUTCH" | "FEED" | "TILT", action: grade, parry: grade }, ...] in order. action is the acting
 // side's tap, parry the other side's tap on that turn (ignored for FEED). Returns { bars: [side 0, side 1], winner,
-// history } where winner is 0, 1 or null (a draw) and history has one { turn, side, hero, ability, bars } per turn
-// played. The fight ends early when a bar is empty.
+// history } where winner is 0, 1 or null (a draw) and history has one { turn, side, hero, ability, level, bars } per turn
+// played (level is the hero's level after its tap). Bars are whole numbers. The fight ends early when a bar is empty.
 export function fight(turns) {
   const bars = [BAR, BAR], weak = [1, 1];                // weak[side]: what that side's next CLUTCH is multiplied by
+  const levels = [Array(HEROES).fill(0), Array(HEROES).fill(0)];
   const history = [];
   for (let i = 0; i < turns.length && i < TURNS; i++) {
     const side = i % 2, other = 1 - side, t = turns[i];
+    const hero = Math.floor(i / 2) % HEROES, power = 1 + LEVEL_BONUS * levels[side][hero];   // its level before this tap
     const through = t.ability === "FEED" ? 1 : PARRY_LETS_THROUGH[t.parry];
     if (t.ability === "CLUTCH") {
-      bars[other] = Math.max(0, bars[other] - CLUTCH_HIT[t.action] * weak[side] * through);
+      bars[other] = Math.max(0, bars[other] - Math.round(CLUTCH_HIT[t.action] * power * weak[side] * through));
       weak[side] = 1;                                    // a weakened CLUTCH is used up, whether or not it landed
     } else if (t.ability === "FEED") {
-      bars[side] = Math.min(BAR, bars[side] + FEED_HEAL[t.action]);
+      bars[side] = Math.min(BAR, bars[side] + Math.round(FEED_HEAL[t.action] * power));
     } else if (t.ability === "TILT") {
-      weak[other] = 1 - (1 - TILT_WEAKEN[t.action]) * through;   // a parried TILT weakens less
+      weak[other] = 1 - Math.min(0.9, (1 - TILT_WEAKEN[t.action]) * power * through);   // a parried TILT weakens less
     } else throw new Error("unknown ability " + t.ability);
-    history.push({ turn: i, side, hero: Math.floor(i / 2) % HEROES, ability: t.ability, bars: [...bars] });
+    levels[side][hero] += LEVEL_UP[t.action];
+    history.push({ turn: i, side, hero, ability: t.ability, level: levels[side][hero], bars: [...bars] });
     if (bars[other] === 0) break;
   }
   const winner = bars[0] === bars[1] ? null : bars[0] > bars[1] ? 0 : 1;

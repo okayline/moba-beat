@@ -11,13 +11,13 @@ test("a fight worked out by hand: hit, a perfect parry, a half parry, a weakened
   // turn 3 (ghost, CLUTCH perfect, you miss the parry): you 100 - 20 = 80
   // turn 4 (you, TILT perfect = x0.5, ghost misses its parry): the ghost's next CLUTCH is halved
   // turn 5 (ghost, CLUTCH perfect, you miss the parry): 20 x 0.5 = 10, you 70
-  // turn 6 (you, FEED perfect): you 70 + 12 = 82
+  // turn 6 (you, FEED perfect, hero 1 again, who got a perfect on turn 0 so is level 1: x1.1): 12 x 1.1 = 13.2, rounded 13, you 83
   const r = fight([
     t("CLUTCH", "perfect", "miss"), t("TILT", "good", "perfect"), t("CLUTCH", "perfect", "good"), t("CLUTCH", "perfect", "miss"),
     t("TILT", "perfect", "miss"), t("CLUTCH", "perfect", "miss"), t("FEED", "perfect"),
   ]);
-  assert.deepEqual(r.history.map((h) => h.bars), [[100, 80], [100, 80], [100, 70], [80, 70], [80, 70], [70, 70], [82, 70]]);
-  assert.deepEqual(r.bars, [82, 70]);
+  assert.deepEqual(r.history.map((h) => h.bars), [[100, 80], [100, 80], [100, 70], [80, 70], [80, 70], [70, 70], [83, 70]]);
+  assert.deepEqual(r.bars, [83, 70]);
   assert.equal(r.winner, 0);
   // the heroes act in order 1, 2, 3, then 1 again, a measure each (turn / 2, mod 3), whichever side acts
   assert.deepEqual(r.history.map((h) => h.hero), [0, 0, 1, 1, 2, 2, 0]);
@@ -46,4 +46,18 @@ test("when the turns run out the fuller bar wins; equal bars are a draw; extra t
   assert.equal(fight([t("CLUTCH", "good", "miss"), t("CLUTCH", "perfect", "miss")]).winner, 1);
   const many = Array.from({ length: TURNS + 4 }, () => t("FEED", "miss"));
   assert.equal(fight(many).history.length, TURNS);
+});
+
+test("a hero levels up from its own taps (perfect 1, good 0.5, miss 0) and hits harder next time", () => {
+  // you CLUTCH every turn, the ghost heals with misses. Heroes act 1 2 3 1 2 3 ..., so you act on turns 0, 2, 4, ... with hero 0, 1, 2, 0, 1, 2, 0
+  const mine = ["perfect", "miss", "miss", "good", "miss", "miss", "perfect"];
+  const turns = mine.flatMap((g) => [t("CLUTCH", g, "miss"), t("FEED", "miss")]);
+  const r = fight(turns).history.filter((h) => h.side === 0);
+  // turn 0: hero 0 level 0, perfect: 20 damage, ghost 80, hero 0 level 1
+  // turn 6: hero 0 level 1, good: 10 x 1.1 = 11, ghost 69, hero 0 level 1.5
+  // turn 12: hero 0 level 1.5, perfect: 20 x 1.15 = 23, ghost 46
+  assert.deepEqual([0, 3, 6].map((k) => r[k].bars[1]), [80, 69, 46]);
+  assert.deepEqual([0, 3, 6].map((k) => r[k].level), [1, 1.5, 2.5]);
+  assert.deepEqual(r.map((h) => h.hero), [0, 1, 2, 0, 1, 2, 0]);
+  assert.equal(r[1].level, 0, "a miss gains nothing");
 });
