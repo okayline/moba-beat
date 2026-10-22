@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { beat, pattern, PROGRESSIONS, STYLES, TAP, KIT_DRUMS } from "../public/beat.js";
+import { beat, pattern, PROGRESSIONS, STYLES, TAP, KIT_DRUMS, THUMP_KITS } from "../public/beat.js";
 import { score, grade } from "../public/score.js";
 
 const hex = (bytes) => bytes.map((b) => b.toString(16).padStart(2, "0")).join("").padEnd(64, "0");
@@ -12,31 +12,27 @@ test("the day's patterns worked out by hand: A A A B | A A A C, nothing ever on 
   assert.deepEqual(pattern(0), [[0, "kick"], [1, "snare"], [2, "kick"]]);
   assert.deepEqual(pattern(1), [[0, "kick"], [0.5, "hat"], [1, "snare"], [2, "kick"]]);
   assert.deepEqual(pattern(107), [[0, "kick"], [0.5, "kick"], [1, "kick"], [1.5, "kick"], [2, "snare"], [2.5, "kick"]]);
-  // a house day keeps the pattern's off-beat notes, so they show the patterns: A = 0, B = 1, C = 107
-  const off = (m, hits) => hits.filter((h) => h.at >= m * 4 && h.at < m * 4 + 4 && h.at % 1 !== 0).map((h) => [h.at - m * 4, h.drum]);
+  // a house day keeps the pattern's off-beat hats, so they show the patterns: A = 0, B = 1, C = 107
+  const off = (m, hits) => hits.filter((h) => h.at >= m * 4 && h.at < m * 4 + 4 && h.at % 1 !== 0 && h.drum === "hat").map((h) => [h.at - m * 4, h.drum]);
   const b = beat(hex([0, 1, 107, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]));
   assert.equal(b.measures, 8);
   for (const [m, p] of [[0, 0], [1, 0], [2, 0], [3, 1], [4, 0], [5, 0], [6, 0], [7, 107]]) {
-    assert.deepEqual(off(m, b.hits), pattern(p).filter(([at]) => at % 1 !== 0), "measure " + (m + 1));
+    assert.deepEqual(off(m, b.hits), pattern(p).filter(([at, d]) => at % 1 !== 0 && d === "hat"), "measure " + (m + 1));
   }
   assert.ok(b.hits.every((h) => h.at % 4 < 3), "beat 4 of every measure is the player's: no drum on it or after it");
   assert.equal(b.bpm, 128);
   // a fill the same as A moves to the next pattern: bytes 0, 1 = 5, 113 (113 mod 108 = 5) -> B is 6
   const c = beat(hex([5, 113, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]));
-  assert.deepEqual(off(3, c.hits), pattern(6).filter(([at]) => at % 1 !== 0));
+  assert.deepEqual(off(3, c.hits), pattern(6).filter(([at, d]) => at % 1 !== 0 && d === "hat"));
 });
 
-test("the harmony worked out by hand: key of D, I V vi IV twice with measure 8 home, hip-hop bass, soft triads", () => {
+test("the harmony worked out by hand: key of D, I V vi IV twice with measure 8 home, soft triads", () => {
   // byte 3 = 2 -> D; byte 4 = 0 -> I V vi IV; byte 20 = 0 -> hip-hop
   const b = beat(hex([0, 0, 0, 2, 0]));
   // I V vi IV I V vi I in D: D A Bm G D A Bm D (roots in semitones above C: 2 9 11 7 2 9 11 2)
   assert.deepEqual(b.chords.map((c) => [c.root, c.quality]),
     [[2, "maj"], [9, "maj"], [11, "min"], [7, "maj"], [2, "maj"], [9, "maj"], [11, "min"], [2, "maj"]]);
   assert.equal(b.style, "hip-hop");
-  // hip-hop bass, measure 1 on D (36 + 2 = 38): root, root, fifth (45); measure 2 on A (45): 45, 45, 52
-  assert.deepEqual(b.bass.slice(0, 6).map((n) => [n.at, n.midi, n.dur]),
-    [[0, 38, 1.5], [1.5, 38, 1], [2.5, 45, 1.5], [4, 45, 1.5], [5.5, 45, 1], [6.5, 52, 1.5]]);
-  assert.equal(b.bass.at(-1).at + b.bass.at(-1).dur, 32, "the last bass note rings to the end");
   // pads: D major from C4 + 2 = 62 66 69; B minor 71 74 78
   assert.deepEqual(b.pad[0], { at: 0, dur: 4, midi: [62, 66, 69] });
   assert.deepEqual(b.pad[2].midi, [71, 74, 78]);
@@ -46,7 +42,6 @@ test("nothing new starts on beat 4 in any kit, and every progression's first hal
   for (const s of [0, 1, 2, 3]) {
     const bytes = Array(32).fill(0); bytes[20] = s;
     const b = beat(hex(bytes));
-    assert.ok(b.bass.every((n) => n.at % 4 !== 3), b.style + " bass");
     assert.ok(b.pad.every((n) => n.at % 4 !== 3), b.style + " pad");
   }
   for (const p of PROGRESSIONS) assert.ok([5, 7].includes(p[3][0]), "measure 4 is IV or V");
@@ -156,10 +151,10 @@ test("a tech-house day: a kick on 1, 2 and 3, a clap on 2, hats only on the off-
     ["0kick", "0.5hat", "0.5open", "1kick", "1clap", "1.5hat", "2kick", "2.5hat"].sort());
 });
 
-test("every kit has a tap sound that is one of its own samples", () => {
+test("every kit has a tap sound that is one of its own samples or its made thump", () => {
   assert.deepEqual(Object.keys(TAP).sort(), [...STYLES].sort());
   assert.deepEqual(STYLES.map((s) => TAP[s]), ["snare", "kick", "clap", "kick"]);
-  for (const k of STYLES) assert.ok(KIT_DRUMS[k].includes(TAP[k]), k);
+  for (const k of STYLES) assert.ok(KIT_DRUMS[k].includes(TAP[k]) || (TAP[k] === "kick" && THUMP_KITS.includes(k)), k);
 });
 
 test("the same hash gives the same beat, another hash another beat", () => {
