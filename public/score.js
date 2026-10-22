@@ -5,6 +5,7 @@
 // A tap is perfect within PERFECT ms, good within GOOD ms, and a target with no tap close enough is a miss.
 
 export const PERFECT = 35, GOOD = 80, WINDOW = 250;
+export const MAX_TAPS = 128;   // the most taps a run can send; the page stops counting taps after this many
 
 export function grade(err) {
   if (err === null) return "miss";

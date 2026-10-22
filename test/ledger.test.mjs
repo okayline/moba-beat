@@ -17,7 +17,12 @@ function fakeD1() {
     all: async () => ({ results: db.prepare(sql).all(...args) }),
     run: async () => { const r = db.prepare(sql).run(...args); return { meta: { changes: r.changes } }; },
   });
-  return { prepare: (sql) => prep(sql), raw: db };
+  const batch = async (stmts) => {
+    db.exec("BEGIN");
+    try { const out = stmts.map((st) => db.prepare(st.sql).run(...st.args)); db.exec("COMMIT"); return out; }
+    catch (e) { db.exec("ROLLBACK"); throw e; }
+  };
+  return { prepare: (sql) => prep(sql), batch, raw: db };
 }
 const sha = (t) => createHash("sha256").update(t).digest("hex");
 
@@ -62,7 +67,7 @@ test("GET /api/ledger lists the chain newest first, with before and limit", asyn
 // a stand-in for the registry's public ledger: entries newest first, each with an id, a hash and the time it was made
 const registry = (all) => async (url) => {
   const q = new URL(url).searchParams, before = Number(q.get("before")) || Infinity, limit = Number(q.get("limit"));
-  return { json: async () => ({ entries: all.filter((e) => e.id < before).sort((a, b) => b.id - a.id).slice(0, limit) }) };
+  return { ok: true, json: async () => ({ entries: all.filter((e) => e.id < before).sort((a, b) => b.id - a.id).slice(0, limit) }) };
 };
 const CUT = Date.parse("2027-01-02T00:00:00Z") / 1000;
 
@@ -83,12 +88,12 @@ test("GET /api/today seals the day with the registry head, once", async () => {
   const db = fakeD1(), real = globalThis.fetch, day = new Date().toISOString().slice(0, 10);
   let asked = 0;
   try {
-    globalThis.fetch = async () => { asked++; return { json: async () => ({ entries: [{ id: 1, hash: R1, at: 1 }] }) }; };
+    globalThis.fetch = async () => { asked++; return { ok: true, json: async () => ({ entries: [{ id: 1, hash: R1, at: 1 }] }) }; };
     const get = async () => (await worker.fetch(new Request("https://x/api/today"), { DB: db })).json();
     const a = await get();
     assert.deepEqual([a.day, a.registry], [day, R1]);
     assert.equal(a.hash, sha(GENESIS + "|" + JSON.stringify({ day, registry: R1 })));
-    assert.deepEqual([a.bpm, a.beats], [beat(a.hash).bpm, beat(a.hash).beats], "the beat comes with the day");
+    assert.deepEqual([a.bpm, a.targets], [beat(a.hash).bpm, beat(a.hash).targets], "the beat comes with the day");
     assert.equal((await get()).hash, a.hash);
     assert.equal(asked, 1, "the registry is read only when the day is sealed");
   } finally { globalThis.fetch = real; }
