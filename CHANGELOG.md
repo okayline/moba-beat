@@ -4,6 +4,15 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.9.2 — "House, Tech House, Boom Bap and Bounce"
+**Wed Oct 21, 2026 · 5:55 PM HST**
+
+- Electro is now called house: 128 BPM, a kick on beats 1, 2 and 3, a snare on beat 2, and the day's off-beat hi-hats and kicks.
+- Hip-hop is boom bap: a snare on beat 2, hi-hats on every eighth note, a kick on beat 1, and the day's other kicks picked from the places boom bap puts them (the "a" of 1, the "and" of 2, beat 3, the "and" of 3, the "a" of 3). Removed: hip-hop's random hi-hats and random kicks and snares on beats 2 and 3.
+- Bounce, West Coast style, 90 to 100 BPM, is a new kit: a clap on beat 2, a kick on beat 1 and the "and" of 3, hi-hats on every eighth note, and the day picks extra kicks and one open hat. Its drums are the pack's bounce kit, with its own low bass. Removed: the trap kit from v0.9.1, with its samples and its 70 to 85 BPM.
+- Tech house, 128 BPM: a kick on beats 1, 2 and 3, a clap on beat 2, hi-hats only on the off-beats, and the day picks syncopated hats and an open hat. Its bass plays on the off-beats, between the kicks. Its drums are the pack's hard-trap kick, clap and hats. The day now picks one of four kits.
+- Your tap on beat 4 plays the kit's sound for it: a snare in hip-hop, a kick in house and tech house (a kick on all four beats), a clap in bounce. Beat 4 stays silent until you tap. Removed: the clap for your tap in hip-hop and house, and those two kits' clap samples.
+
 ## v0.9.1 — "Trap"
 **Wed Oct 21, 2026 · 5:25 PM HST**
 

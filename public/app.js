@@ -1,10 +1,11 @@
 // The page: today's music from /api/today: drums, a bassline and soft chords, through a little reverb. The drums play beats 1 to 3 of each measure over a fixed metronome at the
-// day's tempo; the metronome is never heard and beat 4 is silent. The player taps beat 4 (the tap plays a clap). Some
+// day's tempo; the metronome is never heard and beat 4 is silent. The player taps beat 4 (the tap plays the kit's sound for it). Some
 // measures have an enemy wind-up: a cue sound on beat 1, and the attack lands 2 beats later, where the player taps to
 // parry. Every tap is scored against the metronome (score.js). Everything is
 // scheduled on the Web Audio clock, and taps are timed on the same clock. The fight isn't built yet; a good tap makes
 // your squad flash, which is where the crit will go.
 import { VERSION } from "./version.js";
+import { TAP, KIT_DRUMS } from "./beat.js";
 import { score } from "./score.js";
 import { setupAccount } from "./account.js";
 
@@ -65,7 +66,7 @@ async function load() {
 // Sounds: the drums are samples; the enemy's cue, the bass and the chords are made here from oscillators.
 // Everything plays into one bus: a dry path and a reverb (a room made from decaying noise, its size set by the kit),
 // glued by a compressor on the way out.
-const ROOMS = { "hip-hop": [0.6, 0.16], electro: [0.9, 0.14], trap: [0.8, 0.12] };   // [seconds of tail, how much]
+const ROOMS = { "hip-hop": [0.6, 0.16], house: [0.9, 0.14], bounce: [0.8, 0.12], "tech-house": [0.6, 0.1] };   // [seconds of tail, how much]
 let bus;
 function makeBus() {
   const [secs, amount] = ROOMS[day.style], len = Math.floor(ctx.sampleRate * secs), ir = ctx.createBuffer(2, len, ctx.sampleRate);
@@ -85,10 +86,9 @@ function tone(t, f0, f1, drop, dur, vol, type = "sine") {
   o.connect(g).connect(bus); o.start(t); o.stop(t + dur + 0.02);
 }
 // The drums are recorded one-shots (public/samples, CC0), one set per kit, loaded with the day's beat.
-const DRUMS = ["kick", "snare", "hat", "clap"];
 const SAMPLES = {};
 async function loadSamples() {
-  await Promise.all(DRUMS.map(async (d) => {
+  await Promise.all(KIT_DRUMS[day.style].map(async (d) => {
     const r = await fetch(`samples/${day.style}/${d}.wav`);
     if (!r.ok) throw new Error(d);
     SAMPLES[d] = await ctx.decodeAudioData(await r.arrayBuffer());
@@ -102,7 +102,7 @@ function sample(kind, t, vol = 0.9) {
 
 // The bass, by kit: [wave, filter cutoff, how fast it fades to its held level]. Each note holds until the next one.
 const hz = (midi) => 440 * 2 ** ((midi - 69) / 12);
-const BASS_SOUND = { "hip-hop": ["sine", 500, 0.4], electro: ["sawtooth", 700, 0.12], trap: ["sine", 260, 0.6] };
+const BASS_SOUND = { "hip-hop": ["sine", 500, 0.4], house: ["sawtooth", 700, 0.12], bounce: ["sine", 260, 0.6], "tech-house": ["sawtooth", 300, 0.15] };
 function bassNote(t, midi, len) {
   const [wave, cut, fade] = BASS_SOUND[day.style];
   const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
@@ -176,7 +176,7 @@ function tap() {
   if (!playing) return;
   const ms = (ctx.currentTime - start) * 1000;
   taps.push(ms);
-  drum("clap", ctx.currentTime);
+  drum(TAP[day.style], ctx.currentTime);
   $("tap").classList.add("hit"); setTimeout(() => $("tap").classList.remove("hit"), 90);
   // judge against the nearest target now, so a good tap lands right away
   const near = targets.reduce((a, t, i) => (Math.abs(t - ms) < Math.abs(targets[a] - ms) ? i : a), 0);

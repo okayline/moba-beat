@@ -3,7 +3,7 @@
 //
 // Underneath is a fixed metronome: 8 measures of 4 beats (32 beats) at the day's tempo. It is never heard. Over it, a
 // short song: drums, a bassline and soft chords. The drums play beats 1, 2 and 3 of every measure and leave beat 4
-// silent: beat 4 is the player's. They tap it, their tap plays a clap, and it is scored against the metronome
+// silent: beat 4 is the player's. They tap it, their tap plays the kit's sound for it (TAP), and it is scored against the metronome
 // (score.js). Nothing new starts on beat 4: chords and bass notes can ring through it, but never begin on it.
 //
 // THE SHAPE: a drum loop with fills, A A A B | A A A C. Measure A repeats so the ear locks in; B and C are the fills
@@ -11,6 +11,10 @@
 //
 //   bytes 0, 1, 2    patterns A, B and C: value mod 108 picks one of 108 patterns (B or C moves to the next pattern
 //                    along if it would be the same as A)
+//
+// (No kit plays the patterns below as they are: hip-hop is boom bap (boomBap), house has a kick on every beat and a
+// snare on beat 2 (fourOnTheFloor), bounce is West Coast bounce (bounce) and tech-house is tech house (techHouse). Each
+// starts from the day's patterns.)
 //
 // A pattern, slot by slot:
 //
@@ -31,8 +35,8 @@
 // softly under everything for the whole measure.
 //
 //   bytes 18, 19     as one number, mod the size of the kit's tempo range (TEMPO): the tempo above its low end
-//                    (hip-hop 80 to 100, electro always 128, trap 70 to 85: its snare is on beat 3, so it feels half as fast)
-//   byte 20          the day's kit (STYLES, value mod 3): hip-hop, electro or trap
+//                    (hip-hop 80 to 100, house always 128, bounce 90 to 100, tech-house always 128)
+//   byte 20          the day's kit (STYLES, value mod 4): hip-hop, house, bounce or tech-house
 //
 // ENEMY WIND-UPS (cue, then wait): in any measure but the first, an enemy may wind up on beat 1 with a cue sound; the
 // attack lands WAIT beats later, on beat 3, and the player taps right then to parry it.
@@ -45,9 +49,11 @@
 // wind-up lands.
 
 export const MEASURES = 8, MEASURE = 4, BEATS = MEASURES * MEASURE;
-export const TEMPO = { "hip-hop": [80, 100], electro: [128, 128], trap: [70, 85] };   // each kit's tempo range, BPM
+export const TEMPO = { "hip-hop": [80, 100], house: [128, 128], bounce: [90, 100], "tech-house": [128, 128] };   // each kit's tempo range, BPM
 export const CLAPS = Array.from({ length: MEASURES }, (_, m) => m * MEASURE + 3);   // beat 4 of each measure (0-based)
-export const STYLES = ["hip-hop", "electro", "trap"];
+export const STYLES = ["hip-hop", "house", "bounce", "tech-house"];
+export const TAP = { "hip-hop": "snare", house: "kick", bounce: "clap", "tech-house": "kick" };   // what the player's tap on beat 4 plays: the backbeat's 4, the fourth kick, a clap
+export const KIT_DRUMS = { "hip-hop": ["kick", "snare", "hat"], house: ["kick", "snare", "hat"], bounce: ["kick", "clap", "hat", "open"], "tech-house": ["kick", "clap", "hat", "open"] };   // the samples each kit loads
 export const WAIT = 2;                                    // beats from a wind-up's cue to where it lands
 export const SHAPE = ["A", "A", "A", "B", "A", "A", "A", "C"];
 
@@ -80,11 +86,73 @@ const TRIAD = { maj: [0, 4, 7], min: [0, 3, 7] };
 // measure's chord. No note starts on beat 4 (beat 3.0); the last one rings through it into the next measure.
 export const BASS = {
   "hip-hop": [[0, "root"], [1.5, "root"], [2.5, "fifth"]],                                   // laid back
-  electro: [[0, "root"], [0.75, "root"], [1.5, "root"], [2.25, "fifth"], [2.5, "root"]],    // tight and repeated
-  trap: [[0, "root"], [1.75, "root"], [2.5, "fifth"]],                                         // long, low and sparse
+  house: [[0, "root"], [0.75, "root"], [1.5, "root"], [2.25, "fifth"], [2.5, "root"]],    // tight and repeated
+  bounce: [[0, "root"], [1.75, "root"], [2.5, "fifth"]],                                       // long, low and sparse
+  "tech-house": [[0.5, "root"], [1.5, "root"], [2.5, "root"], [3.5, "root"]],                  // on the off-beats, between the kicks
 };
 const BASS_NOTE = { root: 0, fifth: 7 };
 export const BASS_LOW = 36, PAD_LOW = 60;                 // C2 and C4, as MIDI note numbers
+
+// House drums: a kick on every beat the drums play (1, 2, 3) and a snare on beat 2, under the day's pattern, which
+// keeps its off-beat hi-hats and kicks. Beat 4 stays the player's, so there is no snare there.
+function fourOnTheFloor(hits) {
+  const on = hits.filter((h) => h.at % 1 !== 0);                 // the pattern's off-beat notes
+  for (let m = 0; m < MEASURES; m++) {
+    for (const b of [0, 1, 2]) on.push({ at: m * MEASURE + b, drum: "kick" });
+    on.push({ at: m * MEASURE + 1, drum: "snare" });
+  }
+  return on.sort((x, y) => x.at - y.at);
+}
+
+// Hip-hop's drums are boom bap: a snare on beat 2 (your tap is the one on 4), closed hats on every eighth note, a kick on
+// beat 1, and the day's other kicks chosen from the places boom bap puts them: the "a" of 1, the "and" of 2, beat 3,
+// the "and" of 3 and the "a" of 3. Each of the day's patterns (A, B, C; value mod 32) is one set of those 5, a bit
+// each; a pattern with fewer than 2 gets the "and" of 2 and beat 3, the classic ones.
+const KICKS = [0.75, 1.5, 2, 2.5, 2.75];
+function boomBap(pick) {
+  const hits = [];
+  SHAPE.forEach((x, m) => {
+    let bits = pick[x] % 32;
+    if (KICKS.filter((_, i) => (bits >> i) & 1).length < 2) bits |= 0b00110;
+    for (const at of [0, 0.5, 1, 1.5, 2, 2.5]) hits.push({ at: m * MEASURE + at, drum: "hat" });
+    for (const at of [0, ...KICKS.filter((_, i) => (bits >> i) & 1)]) hits.push({ at: m * MEASURE + at, drum: "kick" });
+    hits.push({ at: m * MEASURE + 1, drum: "snare" });
+  });
+  return hits.sort((x, y) => x.at - y.at);
+}
+
+// Bounce's drums, West Coast style (Mustard's): a clap on beat 2 (your tap is the clap on 4), a kick on beat 1 and on the
+// "and" of 3, closed hats on every eighth note, and the day's extra bits: each pattern (A, B, C; value mod 32) picks
+// which of 3 extra kicks play (the "a" of 1, the "a" of 2, the "a" of 3) and which off-beat hat is open (none, or the
+// "and" of 1, 2 or 3).
+const EXTRA_KICKS = [0.75, 1.75, 2.75], OPEN_AT = [null, 0.5, 1.5, 2.5];
+function bounce(pick) {
+  const hits = [];
+  SHAPE.forEach((x, m) => {
+    const n = pick[x] % 32, open = OPEN_AT[n >> 3];
+    for (const at of [0, 0.5, 1, 1.5, 2, 2.5]) hits.push({ at: m * MEASURE + at, drum: at === open ? "open" : "hat" });
+    for (const at of [0, 2.5, ...EXTRA_KICKS.filter((_, i) => (n >> i) & 1)]) hits.push({ at: m * MEASURE + at, drum: "kick" });
+    hits.push({ at: m * MEASURE + 1, drum: "clap" });
+  });
+  return hits.sort((x, y) => x.at - y.at);
+}
+
+// Tech house's drums: a kick on every beat the drums play, a clap on beat 2 (your tap is the kick on 4), closed hats only on
+// the off-beats (between the kick and the clap), and the day's extras: each pattern (A, B, C; value mod 32) picks
+// whether a syncopated hat plays on the "a" of 2 and the "a" of 3, and which off-beat has an open hat under it (none, or
+// the "and" of 1, 2 or 3).
+const SYNC_HATS = [1.75, 2.75];
+function techHouse(pick) {
+  const hits = [];
+  SHAPE.forEach((x, m) => {
+    const n = pick[x] % 32;
+    for (const at of [0.5, 1.5, 2.5, ...SYNC_HATS.filter((_, i) => (n >> i) & 1)]) hits.push({ at: m * MEASURE + at, drum: "hat" });
+    if (OPEN_AT[n >> 3]) hits.push({ at: m * MEASURE + OPEN_AT[n >> 3], drum: "open" });
+    for (const at of [0, 1, 2]) hits.push({ at: m * MEASURE + at, drum: "kick" });
+    hits.push({ at: m * MEASURE + 1, drum: "clap" });
+  });
+  return hits.sort((x, y) => x.at - y.at);
+}
 
 export function beat(hash) {
   const bytes = hash.match(/../g).map((h) => parseInt(h, 16));
@@ -93,13 +161,17 @@ export function beat(hash) {
   const a = bytes[0] % PATTERNS;
   const other = (v) => (v % PATTERNS === a ? (a + 1) % PATTERNS : v % PATTERNS);
   const pick = { A: a, B: other(bytes[1]), C: other(bytes[2]) };
-  const hits = [];
+  const style = STYLES[bytes[20] % STYLES.length];
+  let hits = [];
   SHAPE.forEach((x, m) => { for (const [at, drum] of pattern(pick[x])) hits.push({ at: m * MEASURE + at, drum }); });
+  if (style === "house") hits = fourOnTheFloor(hits);
+  if (style === "hip-hop") hits = boomBap(pick);
+  if (style === "bounce") hits = bounce(pick);
+  if (style === "tech-house") hits = techHouse(pick);
 
   // harmony: the progression twice, measure 8 home on I
   const key = bytes[3] % 12, prog = PROGRESSIONS[bytes[4] % PROGRESSIONS.length];
   const chords = [...prog, ...prog.slice(0, 3), I].map(([deg, q]) => ({ root: (key + deg) % 12, quality: q }));
-  const style = STYLES[bytes[20] % STYLES.length];
   const pad = chords.map((c, m) => ({ at: m * MEASURE, dur: MEASURE, midi: TRIAD[c.quality].map((s) => PAD_LOW + c.root + s) }));
   const bass = [];
   chords.forEach((c, m) => {
