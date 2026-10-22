@@ -17,7 +17,7 @@
 // service (dungeon-items, bound as ACCOUNTS), which says which player here is yours; they work in the other 88x31
 // games too. (The account code is copied from dawn-baton src/worker.js.)
 // After every seal, the ledger's entry count and newest hash go to the shared registry as a checkpoint (REGISTRY).
-import { dayEntry, runInsert, seal, sha256, verifyChain } from "./ledger.js";
+import { dayEntry, runInsert, seal, sha256, verifyTip } from "./ledger.js";
 import { registryHeadAt } from "./registry.js";
 import { beat } from "../public/beat.js";
 import { MAX_TAPS, score } from "../public/score.js";
@@ -132,17 +132,14 @@ async function ledger(ctx) {
 
 // The ledger so far goes to the shared registry as a checkpoint: its entry count and newest hash, which covers every
 // entry before it. A registry that's away never stops a run: the next checkpoint covers it. (Copied from aura-farm's
-// checkpoint.) It reads only the newest two entries, so it costs the same however long the ledger is: the newest must
-// hash right and chain from the one before it (earlier ones were checked by earlier checkpoints, and the ledger page
-// checks them all). Entries are never deleted, so the newest id is the entry count.
+// checkpoint.) It reads only the newest two entries (verifyTip, public/chain.js), so it costs the same however long the
+// ledger is. Entries are never deleted, so the newest id is the entry count.
 export async function checkpoint(env) {
   try {
     if (!env.REGISTRY) return;
     const rows = (await env.DB.prepare("SELECT id, record, prev_hash, hash FROM ledger ORDER BY id DESC LIMIT 2").all()).results.reverse();
     if (!rows.length) return;
-    const last = rows[rows.length - 1], before = rows.length > 1 ? rows[0] : null;
-    const v = before ? { ok: before.id === last.id - 1 && last.prev_hash === before.hash && (await sha256(before.hash + "|" + last.record)) === last.hash, at: last.id }
-      : { ...(await verifyChain(rows)), at: last.id };
+    const last = rows[rows.length - 1], v = await verifyTip(rows);
     if (!v.ok) return console.error("The ledger is broken at entry " + v.at + ": no checkpoint sent.");
     const res = await env.REGISTRY.checkpoint({ game: GAME, entries: last.id, head: last.hash });
     if (res && res.error) console.error("The registry refused the checkpoint: " + res.error);

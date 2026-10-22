@@ -12,8 +12,8 @@
 // The first entry chains from GENESIS. Changing any old record breaks its hash and every hash after it. prev_hash is
 // UNIQUE, so the chain can't fork.
 
-import { GENESIS, sha256, verifyChain } from "../public/chain.js";
-export { GENESIS, sha256, verifyChain };
+import { GENESIS, sha256, verifyChain, verifyTip } from "../public/chain.js";
+export { GENESIS, sha256, verifyChain, verifyTip };
 
 export async function head(db) {
   const h = await db.prepare("SELECT hash FROM ledger ORDER BY id DESC LIMIT 1").first();
