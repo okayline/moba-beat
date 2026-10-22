@@ -7,5 +7,5 @@ recordings by Edward Loveall (CC0).
 | Kit | kick | snare | hat | clap |
 |---|---|---|---|---|
 | hip-hop | 03-soulful-vintage/kicks/vintage-kick-01 | 03-soulful-vintage/snares/vintage-snare-01 | 03-soulful-vintage/hi-hats/hi-hat-closed-01 | 03-soulful-vintage/claps/vintage-clap-01 |
+| trap | 01-hard-trap/kicks/hard-kick-01 | 01-hard-trap/snares/hard-snare-01 | 01-hard-trap/hi-hats/hi-hat-closed-01 | 01-hard-trap/claps/clap-01 |
 | electro | 02-bounce/kicks/bounce-kick-01 | 02-bounce/snares/bounce-snare-01 | 02-bounce/hi-hats/hi-hat-closed-01 | 02-bounce/claps/clap-01 |
-| disco | 02-bounce/kicks/bounce-kick-02 | 02-bounce/claps/cp | 03-soulful-vintage/open-hats/open-hat-01 | 01-hard-trap/claps/clap-01 |

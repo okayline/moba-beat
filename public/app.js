@@ -65,7 +65,7 @@ async function load() {
 // Sounds: the drums are samples; the enemy's cue, the bass and the chords are made here from oscillators.
 // Everything plays into one bus: a dry path and a reverb (a room made from decaying noise, its size set by the kit),
 // glued by a compressor on the way out.
-const ROOMS = { "hip-hop": [0.6, 0.16], electro: [0.9, 0.14], disco: [1.5, 0.22] };   // [seconds of tail, how much]
+const ROOMS = { "hip-hop": [0.6, 0.16], electro: [0.9, 0.14], trap: [0.8, 0.12] };   // [seconds of tail, how much]
 let bus;
 function makeBus() {
   const [secs, amount] = ROOMS[day.style], len = Math.floor(ctx.sampleRate * secs), ir = ctx.createBuffer(2, len, ctx.sampleRate);
@@ -102,7 +102,7 @@ function sample(kind, t, vol = 0.9) {
 
 // The bass, by kit: [wave, filter cutoff, how fast it fades to its held level]. Each note holds until the next one.
 const hz = (midi) => 440 * 2 ** ((midi - 69) / 12);
-const BASS_SOUND = { "hip-hop": ["sine", 500, 0.4], electro: ["sawtooth", 700, 0.12], disco: ["square", 900, 0.1] };
+const BASS_SOUND = { "hip-hop": ["sine", 500, 0.4], electro: ["sawtooth", 700, 0.12], trap: ["sine", 260, 0.6] };
 function bassNote(t, midi, len) {
   const [wave, cut, fade] = BASS_SOUND[day.style];
   const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();

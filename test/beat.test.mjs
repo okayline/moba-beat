@@ -17,7 +17,7 @@ test("a drumbeat worked out by hand: A A A B | A A A C, nothing ever on beat 4",
   assert.equal(b.measures, 8);
   assert.deepEqual(b.hits, want);
   assert.ok(b.hits.every((h) => h.at % 4 < 3), "beat 4 of every measure is the player's: no drum on it or after it");
-  assert.equal(b.bpm, 110, "bytes 18, 19 = 0, 40: 40 mod 61 = 40, + 70");
+  assert.equal(b.bpm, 99, "hip-hop (byte 20 = 0), bytes 18, 19 = 0, 40: 40 mod 21 = 19, + 80");
   // a fill the same as A moves to the next pattern: bytes 0, 1 = 5, 113 (113 mod 108 = 5) -> B is 6
   const c = beat(hex([5, 113, 6]));
   assert.deepEqual(c.hits.filter((h) => h.at >= 12 && h.at < 16).map((h) => [h.at - 12, h.drum]), pattern(6));
@@ -66,18 +66,25 @@ test("there are 108 different patterns", () => {
   assert.equal(seen.size, 108);
 });
 
-test("the tempo is always 70 to 130 BPM", () => {
-  // [byte 18, byte 19, BPM]: (b18 x 256 + b19) mod 61 + 70
-  for (const [x, y, bpm] of [[0, 0, 70], [0, 60, 130], [0, 61, 70], [1, 0, 82], [255, 255, 91]]) {
+test("the tempo is in the kit's range (electro here, byte 20 = 1: always 128 BPM)", () => {
+  // [byte 18, byte 19, BPM]: a range of one tempo, so any bytes give 128
+  for (const [x, y, bpm] of [[0, 0, 128], [0, 30, 128], [1, 0, 128], [255, 255, 128]]) {
     const bytes = Array(32).fill(1); bytes[18] = x; bytes[19] = y;
     assert.equal(beat(hex(bytes)).bpm, bpm);
   }
 });
 
 test("the day's sound is one of 3 kits, from byte 20", () => {
-  for (const [v, style] of [[0, "hip-hop"], [1, "electro"], [2, "disco"], [3, "hip-hop"], [7, "electro"]]) {
+  for (const [v, style] of [[0, "hip-hop"], [1, "electro"], [2, "trap"], [3, "hip-hop"], [7, "electro"]]) {
     const bytes = Array(32).fill(0); bytes[20] = v;
     assert.equal(beat(hex(bytes)).style, style);
+  }
+});
+
+test("a trap day is slow: 70 to 85 BPM, from bytes 18, 19", () => {
+  for (const [x, y, bpm] of [[0, 0, 70], [0, 15, 85], [0, 16, 70], [1, 5, 75]]) {   // 256 mod 16 = 0, so 261 -> 5 -> 75
+    const bytes = Array(32).fill(0); bytes[18] = x; bytes[19] = y; bytes[20] = 2;
+    assert.equal(beat(hex(bytes)).bpm, bpm);
   }
 });
 
