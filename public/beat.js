@@ -2,9 +2,9 @@
 // gives the same music, here and anywhere else.
 //
 // Underneath is a fixed metronome: 8 measures of 4 beats (32 beats) at the day's tempo. It is never heard. Over it, a
-// short song: drums and soft chords. The drums play beats 1, 2 and 3 of every measure and leave beat 4
+// short song: the drums. The drums play beats 1, 2 and 3 of every measure and leave beat 4
 // silent: beat 4 is the player's. They tap it, their tap plays the kit's sound for it (TAP), and it is scored against the metronome
-// (score.js). Nothing new starts on beat 4: the chords can ring through it, but never begin on it.
+// (score.js). Nothing starts on beat 4.
 //
 // THE SHAPE: a drum loop with fills, A A A B | A A A C. Measure A repeats so the ear locks in; B and C are the fills
 // that end each 4-measure phrase.
@@ -31,8 +31,7 @@
 //   byte 3           the key: value mod 12 semitones above C
 //   byte 4           the progression (PROGRESSIONS, value mod their number)
 //
-// The chords are held softly under everything for the whole measure, from measure 2: measure 1 is the drums alone. Measure 7 is always V and measure 8 always I, so
-// the song ends on V to I.
+// The chords are not played (the pad was taken out); they are kept as the day's record, shown on the ledger page.
 //
 //   bytes 18, 19     as one number, mod the size of the kit's tempo range (TEMPO): the tempo above its low end
 //                    (hip-hop 80 to 100, house always 128, bounce 90 to 100, tech-house always 128)
@@ -86,19 +85,6 @@ export const PROGRESSIONS = [
   [ii, V, I, IV],     // jazzy: two-five-one
   [I, iii, IV, V],
 ];
-const TRIAD = { maj: [0, 4, 7], min: [0, 3, 7] };
-
-// How each kit plays the chords, so the pad is not the same tone in every song: the wave, the lowpass cutoff (Hz), the
-// swell-in time (seconds), the volume, the detune of its two voices (cents), how much of the measure it holds (0 to 1)
-// and a shift in semitones.
-export const PADS = {
-  "hip-hop": { type: "triangle", cutoff: 900, attack: 0.25, vol: 0.04, detune: 6, hold: 1, shift: 0 },
-  house: { type: "sawtooth", cutoff: 2600, attack: 0.03, vol: 0.016, detune: 14, hold: 1, shift: 0 },
-  bounce: { type: "square", cutoff: 1300, attack: 0.01, vol: 0.014, detune: 4, hold: 0.45, shift: 12 },
-  "tech-house": { type: "sawtooth", cutoff: 600, attack: 0.5, vol: 0.022, detune: 10, hold: 1, shift: -12 },
-};
-
-export const PAD_LOW = 60;                                // C4, as a MIDI note number
 
 // House drums: a kick on every beat the drums play (1, 2, 3) and a snare on beat 2, with the day's pattern's off-beat
 // hi-hats. Beat 4 stays the player's, so there is no snare there.
@@ -178,8 +164,7 @@ export function beat(hash) {
 
   // harmony: the progression twice, measure 8 home on I
   const key = bytes[3] % 12, prog = PROGRESSIONS[bytes[4] % PROGRESSIONS.length];
-  const chords = [...prog, ...prog.slice(0, 2), V, I].map(([deg, q]) => ({ root: (key + deg) % 12, quality: q }));
-  const pad = chords.map((c, m) => ({ at: m * MEASURE, dur: MEASURE, midi: TRIAD[c.quality].map((s) => PAD_LOW + c.root + s) })).slice(1);   // from measure 2: the song opens on the drums alone
+  const chords = [...prog, ...prog.slice(0, 3), I].map(([deg, q]) => ({ root: (key + deg) % 12, quality: q }));
 
   // wind-ups and targets
   let windups = Array.from({ length: MEASURES }, (_, m) => m).filter((m) => m > 0 && (bytes[10] >> m) & 1);
@@ -191,5 +176,5 @@ export function beat(hash) {
   const [lo, hi] = TEMPO[style];
   const bpm = lo + (((bytes[18] << 8) | bytes[19]) % (hi - lo + 1));
   const voice = Object.fromEntries(KIT_DRUMS[style].map((d) => [d, bytes[VOICE_BYTE[d]] % VOICES[style][d]]));
-  return { measures: MEASURES, bpm, style, voice, key, chords, hits, pad, cues, targets };
+  return { measures: MEASURES, bpm, style, voice, key, chords, hits, cues, targets };
 }

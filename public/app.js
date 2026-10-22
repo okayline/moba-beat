@@ -1,11 +1,11 @@
-// The page: today's music from /api/today: drums and soft chords, through a little reverb. The drums play beats 1 to 3 of each measure over a fixed metronome at the
+// The page: today's music from /api/today: the drums, through a little reverb. The drums play beats 1 to 3 of each measure over a fixed metronome at the
 // day's tempo; the metronome is never heard and beat 4 is silent. The player taps beat 4 (the tap plays the kit's sound for it). Some
 // measures have an enemy wind-up: a cue sound on beat 1, and the attack lands 2 beats later, where the player taps to
 // parry. Every tap is scored against the metronome (score.js). Everything is
 // scheduled on the Web Audio clock, and taps are timed on the same clock. The fight isn't built yet; a good tap makes
 // your squad flash, which is where the crit will go.
 import { VERSION } from "./version.js";
-import { TAP, KIT_DRUMS, THUMP_KITS, HAT_RATE, PADS } from "./beat.js";
+import { TAP, KIT_DRUMS, THUMP_KITS, HAT_RATE } from "./beat.js";
 import { score } from "./score.js";
 import { setupAccount } from "./account.js";
 
@@ -63,7 +63,7 @@ async function load() {
   $("play").disabled = false;
 }
 
-// Sounds: the drums are samples; the enemy's cue and the chords are made here from oscillators.
+// Sounds: the drums are samples; the enemy's cue and the house kick are made here from oscillators.
 // Everything plays into one bus: a dry path and a reverb (a room made from decaying noise, its size set by the kit),
 // glued by a compressor on the way out.
 const ROOMS = { "hip-hop": [0.6, 0.16], house: [0.9, 0.14], bounce: [0.8, 0.12], "tech-house": [0.6, 0.1] };   // [seconds of tail, how much]
@@ -101,19 +101,6 @@ function sample(kind, t, vol = 0.9) {
   src.connect(g).connect(bus); src.start(t);
 }
 
-const hz = (midi) => 440 * 2 ** ((midi - 69) / 12);
-// The chords: soft notes that swell in and out over the measure, played the way the day's kit plays them (PADS).
-function padChord(t, midis, len) {
-  const k = PADS[day.style], end = t + len * k.hold;
-  for (const m of midis) for (const cents of [-k.detune, k.detune]) {
-    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-    o.type = k.type; o.frequency.value = hz(m + k.shift); o.detune.value = cents; f.type = "lowpass"; f.frequency.value = k.cutoff;
-    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(k.vol, t + Math.min(k.attack, (end - t) / 3));
-    g.gain.setValueAtTime(k.vol, end - 0.2 * k.hold); g.gain.linearRampToValueAtTime(0.0001, end);
-    o.connect(f).connect(g).connect(bus); o.start(t); o.stop(end + 0.02);
-  }
-}
-
 function drum(kind, t) {
   if (kind === "cue") {                                   // the enemy's wind-up: two rising blips, the same in every kit
     for (const [f, d] of [[660, 0], [990, 0.07]]) tone(t + d, f, f, 0.01, 0.09, 0.12, "square");
@@ -129,7 +116,6 @@ function play() {
   start = ctx.currentTime + 0.15 + COUNT_IN * spb;      // the song's first beat, on the audio clock
   for (const h of day.hits) drum(h.drum, start + h.at * spb);
   for (const c of day.cues) drum("cue", start + c.at * spb);
-  for (const p of day.pad) padChord(start + p.at * spb, p.midi, p.dur * spb);
   targets = day.targets.map((x) => x.at * spb * 1000);   // ms from the song's first beat
   taps = []; playing = true;
   $("results").innerHTML = ""; $("status").textContent = ""; $("sealed").textContent = "";
