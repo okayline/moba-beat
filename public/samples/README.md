@@ -4,9 +4,27 @@ One-shot WAV files from [Boochi44/free-drum-samples](https://github.com/Boochi44
 Creative Commons Zero (CC0 1.0): free to use, change and share, with no credit needed. Many are derived from the TR-808
 recordings by Edward Loveall (CC0).
 
-| Kit | kick | snare | hat | clap | open hat |
-|---|---|---|---|---|---|
-| hip-hop | 03-soulful-vintage/kicks/vintage-kick-01 | 03-soulful-vintage/snares/vintage-snare-01 | 03-soulful-vintage/hi-hats/hi-hat-closed-01 | none | none |
-| house | none (a made thump, see app.js) | 02-bounce/snares/bounce-snare-01 | 02-bounce/hi-hats/hi-hat-closed-01 | none | none |
-| bounce | 02-bounce/kicks/bounce-kick-02 | none | 02-bounce/hi-hats/hi-hat-closed-01 | 02-bounce/claps/clap-01 | 02-bounce/open-hats/open-hat-01 |
-| tech-house | 01-hard-trap/kicks/hard-kick-03 | none | 01-hard-trap/hi-hats/hi-hat-closed-01 | 01-hard-trap/claps/clap-01 | 01-hard-trap/open-hats/open-hat-01 |
+Files are `<kit>/<drum>-<n>.wav`; the day's seed picks n (VOICES in `public/beat.js`). Paths below are in the source repo's
+`drum-samples` folder.
+
+| File | Source |
+|---|---|
+| hip-hop/kick-1, -2, -3 | 03-soulful-vintage/kicks/vintage-kick-01, -02, -03 |
+| hip-hop/snare-1, -2, -3 | 03-soulful-vintage/snares/vintage-snare-01, -02, -03 |
+| hip-hop/hat-1 | 03-soulful-vintage/hi-hats/hi-hat-closed-01 |
+| house/kick-1 | 01-hard-trap/808s/808-bass-sub, cut to 0.3 s with an 80 ms fade-out |
+| house/snare-1, -2, -3 | 01-hard-trap/snares/hard-snare-01, -02, -03 |
+| house/hat-1 | 01-hard-trap/hi-hats/hi-hat-closed-01 |
+| bounce/kick-1, -2, -3 | 02-bounce/kicks/bounce-kick-01, -02, -03 |
+| bounce/clap-1 | 02-bounce/claps/clap-01 |
+| bounce/hat-1 | 02-bounce/hi-hats/hi-hat-closed-01 |
+| bounce/open-1 | 02-bounce/open-hats/open-hat-01 |
+| tech-house/kick-1, -2, -3 | 01-hard-trap/kicks/hard-kick-01, -02, -03 |
+| tech-house/clap-1 | 01-hard-trap/claps/clap-01 |
+| tech-house/hat-1 | 01-hard-trap/hi-hats/hi-hat-closed-01 |
+| tech-house/open-1 | 01-hard-trap/open-hats/open-hat-01 |
+
+| cue | 01-hard-trap/percs/perc-cowbell, cut to 0.35 s with a 100 ms fade-out |
+
+The closed hats of the hard-trap and bounce packs are the
+same recording, so those kits play it at different pitches (HAT_RATE in `public/beat.js`).
