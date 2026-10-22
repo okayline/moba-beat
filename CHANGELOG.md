@@ -9,6 +9,8 @@ Newest first. Times are Hawaii time (HST).
 
 - Each day now picks which recording of each drum its kit plays: 3 kicks and 3 snares in hip-hop, 3 snares in house, 3 kicks in bounce and tech house. Removed: the single fixed kick, snare, clap and hat per kit (those 13 sample files are replaced by the new ones).
 - Every kit's drums come from its own pack: hip-hop from the soulful vintage pack, bounce from the bounce pack, tech house and the house snares from the hard-trap pack. Removed: house, bounce and tech house sharing the bounce pack's hi-hat; they still share one hi-hat recording, so each kit plays it at its own pitch (house higher, bounce lower, tech house slightly higher).
+- Each kit plays the chords its own way, so songs no longer all open on the same tone: hip-hop a warm, slow triangle; house a bright sawtooth with a quick attack; bounce short square stabs an octave up; tech house a dark sawtooth an octave down with a slow swell. Removed: the one triangle pad every kit shared.
+- The song opens on the drums alone: the chords start in measure 2. Removed: the chord in measure 1 (the tone every song opened with).
 - Measure 7 is always the V chord, and measure 8 the I chord, so every song ends V to I. Removed: the old measure 7, the third chord of the day's progression again.
 
 ## v0.9.3 — "Kick Alone"

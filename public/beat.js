@@ -31,7 +31,7 @@
 //   byte 3           the key: value mod 12 semitones above C
 //   byte 4           the progression (PROGRESSIONS, value mod their number)
 //
-// The chords are held softly under everything for the whole measure. Measure 7 is always V and measure 8 always I, so
+// The chords are held softly under everything for the whole measure, from measure 2: measure 1 is the drums alone. Measure 7 is always V and measure 8 always I, so
 // the song ends on V to I.
 //
 //   bytes 18, 19     as one number, mod the size of the kit's tempo range (TEMPO): the tempo above its low end
@@ -87,6 +87,16 @@ export const PROGRESSIONS = [
   [I, iii, IV, V],
 ];
 const TRIAD = { maj: [0, 4, 7], min: [0, 3, 7] };
+
+// How each kit plays the chords, so the pad is not the same tone in every song: the wave, the lowpass cutoff (Hz), the
+// swell-in time (seconds), the volume, the detune of its two voices (cents), how much of the measure it holds (0 to 1)
+// and a shift in semitones.
+export const PADS = {
+  "hip-hop": { type: "triangle", cutoff: 900, attack: 0.25, vol: 0.04, detune: 6, hold: 1, shift: 0 },
+  house: { type: "sawtooth", cutoff: 2600, attack: 0.03, vol: 0.016, detune: 14, hold: 1, shift: 0 },
+  bounce: { type: "square", cutoff: 1300, attack: 0.01, vol: 0.014, detune: 4, hold: 0.45, shift: 12 },
+  "tech-house": { type: "sawtooth", cutoff: 600, attack: 0.5, vol: 0.022, detune: 10, hold: 1, shift: -12 },
+};
 
 export const PAD_LOW = 60;                                // C4, as a MIDI note number
 
@@ -169,7 +179,7 @@ export function beat(hash) {
   // harmony: the progression twice, measure 8 home on I
   const key = bytes[3] % 12, prog = PROGRESSIONS[bytes[4] % PROGRESSIONS.length];
   const chords = [...prog, ...prog.slice(0, 2), V, I].map(([deg, q]) => ({ root: (key + deg) % 12, quality: q }));
-  const pad = chords.map((c, m) => ({ at: m * MEASURE, dur: MEASURE, midi: TRIAD[c.quality].map((s) => PAD_LOW + c.root + s) }));
+  const pad = chords.map((c, m) => ({ at: m * MEASURE, dur: MEASURE, midi: TRIAD[c.quality].map((s) => PAD_LOW + c.root + s) })).slice(1);   // from measure 2: the song opens on the drums alone
 
   // wind-ups and targets
   let windups = Array.from({ length: MEASURES }, (_, m) => m).filter((m) => m > 0 && (bytes[10] >> m) & 1);

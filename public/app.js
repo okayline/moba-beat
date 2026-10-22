@@ -5,7 +5,7 @@
 // scheduled on the Web Audio clock, and taps are timed on the same clock. The fight isn't built yet; a good tap makes
 // your squad flash, which is where the crit will go.
 import { VERSION } from "./version.js";
-import { TAP, KIT_DRUMS, THUMP_KITS, HAT_RATE } from "./beat.js";
+import { TAP, KIT_DRUMS, THUMP_KITS, HAT_RATE, PADS } from "./beat.js";
 import { score } from "./score.js";
 import { setupAccount } from "./account.js";
 
@@ -102,14 +102,15 @@ function sample(kind, t, vol = 0.9) {
 }
 
 const hz = (midi) => 440 * 2 ** ((midi - 69) / 12);
-// The chords: soft triangle notes that swell in and out over the measure.
+// The chords: soft notes that swell in and out over the measure, played the way the day's kit plays them (PADS).
 function padChord(t, midis, len) {
-  for (const m of midis) {
+  const k = PADS[day.style], end = t + len * k.hold;
+  for (const m of midis) for (const cents of [-k.detune, k.detune]) {
     const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-    o.type = "triangle"; o.frequency.value = hz(m); f.type = "lowpass"; f.frequency.value = 1600;
-    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.035, t + Math.min(0.3, len / 3));
-    g.gain.setValueAtTime(0.035, t + len - 0.2); g.gain.linearRampToValueAtTime(0.0001, t + len);
-    o.connect(f).connect(g).connect(bus); o.start(t); o.stop(t + len + 0.02);
+    o.type = k.type; o.frequency.value = hz(m + k.shift); o.detune.value = cents; f.type = "lowpass"; f.frequency.value = k.cutoff;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(k.vol, t + Math.min(k.attack, (end - t) / 3));
+    g.gain.setValueAtTime(k.vol, end - 0.2 * k.hold); g.gain.linearRampToValueAtTime(0.0001, end);
+    o.connect(f).connect(g).connect(bus); o.start(t); o.stop(end + 0.02);
   }
 }
 
