@@ -4,6 +4,11 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.9.1 — "Trap"
+**Wed Oct 21, 2026 · 5:25 PM HST**
+
+- The day's beat is hip-hop, electro or trap. Trap uses the hard-trap drums (heavy kick, crisp snare, hat, clap) with a slow, low, sparse bass line, at 70 to 85 BPM (hip-hop is now 80 to 100 and electro always 128). Removed: the disco kit, its octave-bounce bass line, its reverb and bass sound, and its samples. The kit still comes from the day's hash, so on some days the kit has changed, and the ledger page shows the new one.
+
 ## v0.9 — "Same You"
 **Wed Oct 21, 2026 · 12:01 PM HST**
 

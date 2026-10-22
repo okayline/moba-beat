@@ -30,8 +30,9 @@
 // The bass follows the chords: its rhythm and which chord notes it plays come from the kit (BASS); the chords are held
 // softly under everything for the whole measure.
 //
-//   bytes 18, 19     as one number, mod 61: the tempo above BPM_MIN (70 to 130 BPM)
-//   byte 20          the day's kit (STYLES, value mod 3): hip-hop, electro or disco
+//   bytes 18, 19     as one number, mod the size of the kit's tempo range (TEMPO): the tempo above its low end
+//                    (hip-hop 80 to 100, electro always 128, trap 70 to 85: its snare is on beat 3, so it feels half as fast)
+//   byte 20          the day's kit (STYLES, value mod 3): hip-hop, electro or trap
 //
 // ENEMY WIND-UPS (cue, then wait): in any measure but the first, an enemy may wind up on beat 1 with a cue sound; the
 // attack lands WAIT beats later, on beat 3, and the player taps right then to parry it.
@@ -44,9 +45,9 @@
 // wind-up lands.
 
 export const MEASURES = 8, MEASURE = 4, BEATS = MEASURES * MEASURE;
-export const BPM_MIN = 70, BPM_MAX = 130;
+export const TEMPO = { "hip-hop": [80, 100], electro: [128, 128], trap: [70, 85] };   // each kit's tempo range, BPM
 export const CLAPS = Array.from({ length: MEASURES }, (_, m) => m * MEASURE + 3);   // beat 4 of each measure (0-based)
-export const STYLES = ["hip-hop", "electro", "disco"];
+export const STYLES = ["hip-hop", "electro", "trap"];
 export const WAIT = 2;                                    // beats from a wind-up's cue to where it lands
 export const SHAPE = ["A", "A", "A", "B", "A", "A", "A", "C"];
 
@@ -75,14 +76,14 @@ export const PROGRESSIONS = [
 ];
 const TRIAD = { maj: [0, 4, 7], min: [0, 3, 7] };
 
-// The bass for each kit: [beat, which note] for one measure, where the note is "root", "fifth" or "octave" of the
+// The bass for each kit: [beat, which note] for one measure, where the note is "root", or "fifth" of the
 // measure's chord. No note starts on beat 4 (beat 3.0); the last one rings through it into the next measure.
 export const BASS = {
   "hip-hop": [[0, "root"], [1.5, "root"], [2.5, "fifth"]],                                   // laid back
   electro: [[0, "root"], [0.75, "root"], [1.5, "root"], [2.25, "fifth"], [2.5, "root"]],    // tight and repeated
-  disco: [[0, "root"], [0.5, "octave"], [1, "root"], [1.5, "octave"], [2, "root"], [2.5, "octave"], [3.5, "octave"]], // octave bounce
+  trap: [[0, "root"], [1.75, "root"], [2.5, "fifth"]],                                         // long, low and sparse
 };
-const BASS_NOTE = { root: 0, fifth: 7, octave: 12 };
+const BASS_NOTE = { root: 0, fifth: 7 };
 export const BASS_LOW = 36, PAD_LOW = 60;                 // C2 and C4, as MIDI note numbers
 
 export function beat(hash) {
@@ -113,6 +114,7 @@ export function beat(hash) {
   const targets = [...CLAPS.map((at) => ({ at, kind: "clap" })), ...cues.map((c) => ({ at: c.lands, kind: "parry" }))]
     .sort((x, y) => x.at - y.at);
 
-  const bpm = BPM_MIN + (((bytes[18] << 8) | bytes[19]) % (BPM_MAX - BPM_MIN + 1));
+  const [lo, hi] = TEMPO[style];
+  const bpm = lo + (((bytes[18] << 8) | bytes[19]) % (hi - lo + 1));
   return { measures: MEASURES, bpm, style, key, chords, hits, bass, pad, cues, targets };
 }
