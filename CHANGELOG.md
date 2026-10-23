@@ -4,6 +4,11 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.10.5 — "Beat numbers"
+**Fri Oct 23, 2026 · 12:35 PM HST**
+
+- In the feed, beats 2 and 3 now have a small number near the bottom of their lines, like beat 1. Beat 4 (gold) has none. Removed: nothing.
+
 ## v0.10.4 — "Beat 4 gold"
 **Fri Oct 23, 2026 · 12:28 PM HST**
 

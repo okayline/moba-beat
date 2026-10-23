@@ -1,5 +1,5 @@
 // The scrolling feed on the daily page: the beat lines scroll right to left past a fixed blue line, like a rhythm game. A
-// vertical line marks every beat; beat 4 (yours) is gold, and beat 1 has a small "1" near the bottom. No notes are drawn, so you still play by ear.
+// vertical line marks every beat; beat 4 (yours) is gold, and beats 1, 2 and 3 have a small number near the bottom. No notes are drawn, so you still play by ear.
 // drawFeed(canvas, day, at) draws the moment `at`, in beats from the song's first beat (negative during the count-in).
 const BEHIND = 2, AHEAD = 6;                    // beats shown behind and ahead of the line
 const FLASH = 260, LATE = 700;                  // ms a hit lights the line, and ms "Late!" stays
@@ -19,7 +19,7 @@ export function drawFeed(canvas, day, at) {
     if (b < 0 || b > day.measures * 4) continue;
     g.strokeStyle = b % 4 === 3 ? c("--strong") : c("--line"); g.lineWidth = b % 4 === 3 ? 2 : 1;
     g.beginPath(); g.moveTo(x(b), 0); g.lineTo(x(b), h); g.stroke();
-    if (b % 4 === 0 && b < day.measures * 4) { g.fillStyle = c("--muted"); g.font = "700 13px " + c("--font"); g.textAlign = "left"; g.fillText("1", x(b) + 5, h - 8); }
+    if (b % 4 < 3 && b < day.measures * 4) { g.fillStyle = c("--muted"); g.font = "700 13px " + c("--font"); g.textAlign = "left"; g.fillText(String(b % 4 + 1), x(b) + 5, h - 8); }
   }
   const age = shown ? performance.now() - shown.at : Infinity, lit = shown && shown.kind !== "late" && age < FLASH ? 1 - age / FLASH : 0;
   g.strokeStyle = lit && shown.kind === "perfect" ? c("--ink") : c("--you"); g.lineWidth = 3 + lit * (shown?.kind === "perfect" ? 6 : 3);   // the line you hit on
