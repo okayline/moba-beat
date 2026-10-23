@@ -4,6 +4,11 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.10.6 — "No duel page"
+**Fri Oct 23, 2026 · 12:45 PM HST**
+
+- The duel page and its link are gone. The duel's backend stays: the Worker routes, the two tables, and `duel.js` and `moves.js`. Removed: `public/duel.html`, `public/duel-page.js`, the "Duels" link in the daily page's footer, and the duel page's section of `style.css`.
+
 ## v0.10.5 — "Beat numbers"
 **Fri Oct 23, 2026 · 12:35 PM HST**
 

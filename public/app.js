@@ -2,8 +2,7 @@
 // day's tempo; the metronome is never heard and beat 4 is silent. The feed (feed.js) scrolls the beat lines past a line while you play. The player taps beat 4 (the tap plays the kit's sound for it). Some
 // measures have an enemy wind-up: a cue sound on beat 1, and the attack lands 2 beats later, where the player taps to
 // parry. Every tap is scored against the metronome (score.js). Everything is
-// scheduled on the Web Audio clock, and taps are timed on the same clock. A good tap makes your squad flash. The duel is
-// its own page (duel.html).
+// scheduled on the Web Audio clock, and taps are timed on the same clock. A good tap makes your squad flash.
 import { VERSION } from "./version.js";
 import { TAP } from "./beat.js";
 import { createAudio } from "./audio.js";
