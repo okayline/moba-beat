@@ -4,6 +4,11 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.10.3 — "Light up"
+**Fri Oct 23, 2026 · 12:20 PM HST**
+
+- On the daily page the blue line in the feed lights up when you tap: bright white and wide for a perfect, a softer blue glow for a good. A tap that is late and a miss (past good, within a quarter second) shows "Late!" next to the line. Nothing shows for an early miss. Removed: nothing.
+
 ## v0.10.2 — "Beat bars only"
 **Fri Oct 23, 2026 · 12:12 PM HST**
 

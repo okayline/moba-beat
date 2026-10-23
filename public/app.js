@@ -9,7 +9,7 @@ import { TAP } from "./beat.js";
 import { createAudio } from "./audio.js";
 import { MAX_TAPS, score } from "./score.js";
 import { setupAccount } from "./account.js";
-import { drawFeed } from "./feed.js";
+import { drawFeed, flash } from "./feed.js";
 
 const $ = (id) => document.getElementById(id);
 $("version").textContent = VERSION;
@@ -119,7 +119,8 @@ function tap() {
   $("tap").classList.add("hit"); setTimeout(() => $("tap").classList.remove("hit"), 90);
   // judge against the nearest target now, so a good tap lands right away
   const near = targets.reduce((a, t, i) => (Math.abs(t - ms) < Math.abs(targets[a] - ms) ? i : a), 0);
-  const g = score([targets[near]], [ms])[0].grade;
+  const r = score([targets[near]], [ms])[0], g = r.grade;
+  if (g !== "miss") flash(g); else if (r.err !== null && r.err > 0) flash("late");   // bright for perfect, normal for good, "Late!" for a late miss
   if (g !== "miss") {
     const cls = day.targets[near].kind === "parry" ? "parried" : "crit";   // a parry blocks the enemy; a clap crits
     arena.classList.add(cls); setTimeout(() => arena.classList.remove(cls), 240);
