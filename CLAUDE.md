@@ -1,5 +1,14 @@
 # Working notes for moba-beat
 
+## Rules for every repo
+
+- **Push only when the user says to.** Build and commit locally as asked.
+- **Ask before adding anything that wasn't asked for** (a button, a screen, a message, a page, a feature), even a small one. The owner would rather be asked than remove it later.
+- **Keep testing quick: 2-3 mins at most. Don't test for edge cases.**
+- **No new dependencies** without asking.
+- Times in changelogs are Hawaii time (HST).
+
+
 moba-beat: a rhythm micro-MOBA auto-battler, daily and async, played like Rhythm Tengoku (GBA): a daily song over a hidden beat, and you tap on the silent beat 4. Design and detailed history are in the private dungeon-notes repo: `moba-beat/design.md` and `moba-beat/changelog-v0.1.md`.
 
 - **Push only when the user says to.** The Worker is connected to this repo, so a push to `main` is a release.
