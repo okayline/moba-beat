@@ -4,6 +4,11 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.10.4 — "Beat 4 gold"
+**Fri Oct 23, 2026 · 12:28 PM HST**
+
+- In the feed, the gold line is now beat 4, the beat you play, and beat 1 has a small "1" near the bottom of its line. Removed: the gold on beat 1.
+
 ## v0.10.3 — "Light up"
 **Fri Oct 23, 2026 · 12:20 PM HST**
 
