@@ -1,5 +1,5 @@
 // The page: today's music from /api/today: the drums, through a little reverb. The drums play beats 1 to 3 of each measure over a fixed metronome at the
-// day's tempo; the metronome is never heard and beat 4 is silent. The player taps beat 4 (the tap plays the kit's sound for it). Some
+// day's tempo; the metronome is never heard and beat 4 is silent. The feed (feed.js) scrolls the song past a line while you play. The player taps beat 4 (the tap plays the kit's sound for it). Some
 // measures have an enemy wind-up: a cue sound on beat 1, and the attack lands 2 beats later, where the player taps to
 // parry. Every tap is scored against the metronome (score.js). Everything is
 // scheduled on the Web Audio clock, and taps are timed on the same clock. A good tap makes your squad flash. The duel is
@@ -9,6 +9,7 @@ import { TAP } from "./beat.js";
 import { createAudio } from "./audio.js";
 import { MAX_TAPS, score } from "./score.js";
 import { setupAccount } from "./account.js";
+import { drawFeed } from "./feed.js";
 
 const $ = (id) => document.getElementById(id);
 $("version").textContent = VERSION;
@@ -61,6 +62,7 @@ async function load() {
     return;
   }
   $("play").disabled = false;
+  drawFeed($("feed"), day, -COUNT_IN);
 }
 
 // Sounds come from audio.js (shared with the duel page).
@@ -82,6 +84,7 @@ function play() {
 let lastBeat = null;
 function frame() {
   const at = (ctx.currentTime - start) / spb;           // in beats from the song's first beat
+  drawFeed($("feed"), day, at);
   // where you are: a countdown -3, -2, -1, then the beat of the measure, 1 to 3; beat 4 (your clap) shows nothing
   const beatNo = Math.floor(at) % 4 + 1;
   const count = at < -COUNT_IN ? "" : at < 0 ? String(Math.floor(at)) : at < day.measures * 4 && beatNo < 4 ? String(beatNo) : "";

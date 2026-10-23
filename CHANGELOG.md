@@ -4,6 +4,11 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.10.1 — "Feed"
+**Fri Oct 23, 2026 · 12:05 PM HST**
+
+- The daily page now has a scrolling feed. The song scrolls right to left past a blue line; a vertical line marks each beat (gold for the first beat of a measure); the drums are dots (hats on top, then snare or clap, then kick); the enemy's wind-ups are pink dots on the top row; the taps you should make are gold on the bottom row, a filled circle for the clap on beat 4 and a ring for a parry. You hit them as they reach the blue line. The code is `public/feed.js`. The feed shows the notes while you play, so the daily beat is no longer played by ear. Removed: nothing yet; the grid that appears after you finish is still there.
+
 ## v0.10 — "Duel"
 **Fri Oct 23, 2026 · 11:39 AM HST**
 
