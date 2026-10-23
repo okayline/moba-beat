@@ -2,10 +2,11 @@
 // day's tempo; the metronome is never heard and beat 4 is silent. The player taps beat 4 (the tap plays the kit's sound for it). Some
 // measures have an enemy wind-up: a cue sound on beat 1, and the attack lands 2 beats later, where the player taps to
 // parry. Every tap is scored against the metronome (score.js). Everything is
-// scheduled on the Web Audio clock, and taps are timed on the same clock. The fight isn't built yet; a good tap makes
-// your squad flash, which is where the crit will go.
+// scheduled on the Web Audio clock, and taps are timed on the same clock. A good tap makes your squad flash. The duel is
+// its own page (duel.html).
 import { VERSION } from "./version.js";
-import { TAP, KIT_DRUMS, HAT_RATE } from "./beat.js";
+import { TAP } from "./beat.js";
+import { createAudio } from "./audio.js";
 import { MAX_TAPS, score } from "./score.js";
 import { setupAccount } from "./account.js";
 
@@ -21,7 +22,7 @@ const SHAPES = {
 for (const id of ["you", "ghost"]) $(id).innerHTML = Object.entries(SHAPES).map(([n, svg]) => `<div class="unit"><div class="token">${svg}</div><span>${n}</span></div>`).join("");
 
 const COUNT_IN = 3;                 // silent beats before the song: the countdown -3, -2, -1
-let day, ctx, start, spb, targets, taps = [], raf = null, playing = false;
+let day, audio, ctx, start, spb, targets, taps = [], raf = null, playing = false;
 const arena = document.querySelector(".arena");
 const cells = () => $("track").querySelectorAll(".step.on");
 
@@ -53,9 +54,8 @@ async function load() {
     return `<li aria-label="Measure ${m + 1}">${cells.join("")}</li>`;
   }).join("");
   try {
-    ctx = new AudioContext();                            // starts paused; Play resumes it (browsers need a tap first)
-    makeBus();
-    await loadSamples();
+    audio = await createAudio(day);                      // starts paused; Play resumes it (browsers need a tap first)
+    ctx = audio.ctx;
   } catch {
     $("status").textContent = "Today's drums didn't load. Reload the page to try again.";
     return;
@@ -63,37 +63,8 @@ async function load() {
   $("play").disabled = false;
 }
 
-// Sounds: the drums are samples; the enemy's cue is a sample too (samples/cue.wav).
-// Everything plays into one bus: a dry path and a reverb (a room made from decaying noise, its size set by the kit),
-// glued by a compressor on the way out.
-const ROOMS = { "hip-hop": [0.6, 0.16], house: [0.9, 0.14], bounce: [0.8, 0.12], "tech-house": [0.6, 0.1] };   // [seconds of tail, how much]
-let bus;
-function makeBus() {
-  const [secs, amount] = ROOMS[day.style], len = Math.floor(ctx.sampleRate * secs), ir = ctx.createBuffer(2, len, ctx.sampleRate);
-  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3; }
-  const room = ctx.createConvolver(), wet = ctx.createGain(), glue = ctx.createDynamicsCompressor();
-  room.buffer = ir; wet.gain.value = amount;
-  glue.threshold.value = -18; glue.ratio.value = 3;
-  bus = ctx.createGain();
-  bus.connect(glue); bus.connect(room); room.connect(wet); wet.connect(glue); glue.connect(ctx.destination);
-}
-
-// The drums are recorded one-shots (public/samples, CC0), the day's pick of each kit's recordings, loaded with the day's beat.
-const SAMPLES = {};
-async function loadSamples() {
-  const files = [...KIT_DRUMS[day.style].map((d) => [d, `samples/${day.style}/${d}-${day.voice[d] + 1}.wav`]), ["cue", "samples/cue.wav"]];
-  await Promise.all(files.map(async ([d, url]) => {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(d);
-    SAMPLES[d] = await ctx.decodeAudioData(await r.arrayBuffer());
-  }));
-}
-function sample(kind, t, vol = 0.9) {
-  const src = ctx.createBufferSource(), g = ctx.createGain();
-  src.buffer = SAMPLES[kind]; g.gain.value = vol;
-  if (kind === "hat" || kind === "open") src.playbackRate.value = HAT_RATE[day.style];
-  src.connect(g).connect(bus); src.start(t);
-}
+// Sounds come from audio.js (shared with the duel page).
+const sample = (kind, t, vol) => audio.sample(kind, t, vol);
 
 function play() {
   $("reveal").hidden = true;                             // the grid stays hidden while you play: you play by ear
@@ -134,9 +105,9 @@ function frame() {
   raf = requestAnimationFrame(frame);
 }
 
-// A tap is timed by when you heard the beat: the audio clock less the device's output delay (what Bluetooth headphones
-// add, for one), where the browser reports it. Taps past MAX_TAPS aren't counted (the server takes no more).
-const heardLate = () => (ctx.baseLatency || 0) + (ctx.outputLatency || 0);
+// A tap is timed by when you heard the beat: the audio clock less the device's output delay (audio.js). Taps past
+// MAX_TAPS aren't counted (the server takes no more).
+const heardLate = () => audio.heardLate();
 function tap() {
   if (!playing) return;
   const ms = Math.round((ctx.currentTime - heardLate() - start) * 1000);

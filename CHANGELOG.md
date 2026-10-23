@@ -4,6 +4,44 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.10 — "Duel"
+**Fri Oct 23, 2026 · 11:39 AM HST**
+
+- Duels: a new page, `duel.html`. Start a duel and send its link; whoever opens it and joins is the second player. The day's song is the duel: its 8 measures are 8 turns, one measure each, the two players taking turns. On your turn you play your move blind and it is saved; on theirs you watch their recording and play the same measure live, and can answer on beat 3 with a guard or a retreat. The page shows life, meter, the 7-space track, a log, and a short list of the moves. A duel doesn't need both players online at once. Removed: nothing from the daily game, which plays as before.
+- The rules are in `public/duel.js`: 10 life each, a meter of 3 that a damaging attack fills by 1, a guard that costs 1 meter (never below 0), a super that needs the full meter, attacks that reach 2 spaces, advance and retreat, and a wasted turn that costs 1 life. All numbers are first guesses, not balanced. Removed: `public/fight.js` and its test, the three-hero fight that the page and the Worker never used.
+- Two more moves in `public/moves.js`: super (press on beat 1, hold through beat 3, tap on beat 4) and advance (a single tap on beat 4, my pick). Removed: nothing.
+- The Worker keeps duels in two new tables (`migrations/003_duels.sql`, `schema.sql`): who is in the duel and each turn's recording. The state of a duel is worked out from the recordings each time, never stored. New routes: `POST /api/duel/new`, `POST /api/duel/join`, `GET /api/duel`, `POST /api/duel/play`, `GET /api/duels`. New duels are limited to 10 an hour per address. The live D1 must be migrated before this is pushed. Duels are not sealed on the ledger. Removed: nothing.
+- The drum, reverb and tap-delay code moved from `public/app.js` to `public/audio.js`, shared with the duel page. Removed: the copy in `app.js`; the daily page sounds and times taps the same.
+- The daily page's footer has a "Duels" link. Removed: nothing.
+
+## v0.9.10 — "Late!"
+**Fri Oct 23, 2026 · 11:26 AM HST**
+
+- A retreat's tap on beat 3 now has to be at least good too: a miss there makes the measure "unclear", not a retreat, like an attack's beat 2 and a guard's beat 3. Removed: a retreat with a missed first tap still counting as a retreat.
+- `read()` and `readSong()` now say how far off the press that started the move was when that miss is why it isn't one (`miss`, in ms: positive is late, negative is early), so the page can show "Late!". Removed: nothing; before, a missed move came back with no hint of how it missed. Still not on the page or the Worker, so no "Late!" shows yet.
+
+## v0.9.9 — "Miss Is a Miss"
+**Fri Oct 23, 2026 · 11:25 AM HST**
+
+- A guard's press on beat 3 now has to be at least good (within 80 ms of the beat): a miss there makes the measure "unclear", not a guard, the same as an attack's beat 2. Removed: a guard with a missed press on beat 3 still being called a guard (a "missed" one, with a grade). Still not on the page or the Worker.
+
+## v0.9.8 — "Crit"
+**Fri Oct 23, 2026 · 11:24 AM HST**
+
+- An attack's press on beat 2 now has to be at least good (within 80 ms of the beat): a miss there makes the measure "unclear", not an attack. Removed: any press nearest beat 2 starting an attack, however badly timed.
+- `read()` and `readSong()` also say whether the move was a crit: an attack whose tap on beat 4 was perfect, or a guard whose press on beat 3 was perfect. A retreat has no crit. Removed: nothing; the grades were already there, and a crit is only the perfect one read for you. Still not on the page or the Worker.
+
+## v0.9.7 — "Tight Guard"
+**Fri Oct 23, 2026 · 11:22 AM HST**
+
+- An attack now has to be held through beat 3: a finger let go before beat 3 is "unclear", not an attack. Removed: an attack counting with only a quick tap on beat 2.
+- Every press a move is made of is graded against its own beat with the fixed timing (perfect within 35 ms, good within 80, otherwise a miss): a guard on beat 3, an attack's presses on beats 2 and 4, a retreat's taps on beats 3 and 4. The nearest beat still decides which move it was, so a guard 200 ms off is a guard, but a missed one. Removed: "near beat 3" being all a guard needed, and `move()` and `moves()`, which only named the move; `read()` and `readSong()` replace them and also return the grades. Still not on the page or the Worker.
+
+## v0.9.6 — "Hold and Tap"
+**Fri Oct 23, 2026 · 11:18 AM HST**
+
+- The first rule of the one-button duel is written as code, not on the page yet: `public/moves.js` reads one measure of finger-down and finger-up times and says which move it was. Attack is a finger down near beat 2 and a separate tap near beat 4, guard is a finger down near beat 3 and still down at beat 4, retreat is a tap near beat 3 and a tap near beat 4. No finger is "none", and any other finger is "unclear". Removed: nothing. The page and the Worker don't use it yet, so the daily game plays exactly as before.
+
 ## v0.9.5 — "Steady Hands"
 **Wed Oct 21, 2026 · 7:35 PM HST**
 

@@ -43,3 +43,23 @@ CREATE TABLE IF NOT EXISTS rate_limits (
   count         INTEGER NOT NULL,
   PRIMARY KEY (key, window_start)
 );
+
+-- v0.10: duels (migrations/003_duels.sql). A fight over one day's song: 8 turns, one measure each. Each turn is one row:
+-- the actor's recording (act) and then the reactor's live one (react). The state of the fight is worked out from them.
+CREATE TABLE IF NOT EXISTS duels (
+  id          INTEGER PRIMARY KEY,
+  day         TEXT NOT NULL,
+  p0          INTEGER NOT NULL REFERENCES players(id),
+  p1          INTEGER REFERENCES players(id),
+  created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS duels_p0 ON duels (p0);
+CREATE INDEX IF NOT EXISTS duels_p1 ON duels (p1);
+CREATE TABLE IF NOT EXISTS duel_turns (
+  duel_id     INTEGER NOT NULL REFERENCES duels(id),
+  turn        INTEGER NOT NULL,
+  act         TEXT NOT NULL,
+  react       TEXT,
+  created_at  INTEGER NOT NULL,
+  PRIMARY KEY (duel_id, turn)
+);

@@ -5,6 +5,14 @@
 //                                        against the day's beat (not secret: anyone can work it out from the day's hash).
 //                                        Your first run of the day is sealed on the ledger; later ones are practice and
 //                                        answer {sealed: false, run}. New players: 3 an hour per address.
+//   POST /api/duel/new {}                make a duel over today's song; answers {id}. Send its link to whoever you want to fight.
+//   POST /api/duel/join {id}             take the empty seat in a duel (not your own)
+//   GET  /api/duel?id=N                  the duel: its state, what happened, and what you can do next (act, react, wait, ...)
+//   POST /api/duel/play {id, turn, presses}   play your part of the current turn: your move (the actor, recorded blind) or
+//                                        your live answer to the other player's recording (the reactor). Presses are
+//                                        [{down, up}] in ms from the start of that turn's measure. The server reads them
+//                                        (public/moves.js) and works out the fight (public/duel.js).
+//   GET  /api/duels                      your duels, newest first
 //   GET  /api/ledger?before=ID&limit=N   the chain, newest first (N up to 100)
 //   GET  /api/account                    your save codes and passkeys (never the codes themselves), and your devices
 //   POST /api/codes {action: new | remove, id}              make a save code (shown once) or forget one
@@ -21,6 +29,8 @@ import { dayEntry, runInsert, seal, sha256, verifyTip } from "./ledger.js";
 import { registryHeadAt } from "./registry.js";
 import { beat } from "../public/beat.js";
 import { MAX_TAPS, score } from "../public/score.js";
+import { MAX_PRESSES, read } from "../public/moves.js";
+import { play } from "../public/duel.js";
 
 const GAME = "moba-beat";
 const COOKIE = "mb";
@@ -146,6 +156,108 @@ export async function checkpoint(env) {
   } catch (e) { console.error(e); }
 }
 
+// ---------- duels ----------
+// A duel is fought over one day's song (the day it was made); its 8 measures are 8 turns (public/duel.js). Every
+// turn has two parts: the actor's recording, then the reactor's live answer to it. The state is worked out from the stored
+// presses each time, so there is nothing to keep in step.
+
+const readOf = (json, spb) => read(JSON.parse(json).map((p) => ({ down: p.down / spb, up: p.up == null ? null : p.up / spb })), spb);
+
+// Presses off the wire: [{down, up}] in ms from the start of the measure. Sorted, rounded to whole ms, one finger at a time.
+function cleanPresses(raw, spb) {
+  const bad = () => new Oops("Those presses don't fit the measure.");
+  if (!Array.isArray(raw) || raw.length > MAX_PRESSES) throw bad();
+  const ps = raw.map((p) => {
+    if (!p || !Number.isFinite(p.down) || p.down < -spb / 2 || p.down > spb * 4.5) throw bad();
+    if (p.up != null && (!Number.isFinite(p.up) || p.up < p.down || p.up > p.down + spb * 8)) throw bad();
+    return { down: Math.round(p.down), up: p.up == null ? null : Math.round(p.up) };
+  }).sort((a, b) => a.down - b.down);
+  for (let i = 1; i < ps.length; i++) if (ps[i - 1].up === null || ps[i - 1].up > ps[i].down) throw bad();
+  return ps;
+}
+
+const duelIdOf = (v) => { const id = Number(v); if (!Number.isInteger(id) || id < 1) throw new Oops("No such duel.", 404); return id; };
+async function duelRow(env, id) {
+  const d = await env.DB.prepare("SELECT id, day, p0, p1 FROM duels WHERE id = ?").bind(id).first();
+  if (!d) throw new Oops("No such duel.", 404);
+  return d;
+}
+
+// Everything the page needs about a duel, for the player `myId` (null for a stranger): which seat they have, what has
+// happened, the state now, and what they can do next. The actor's recording is shown only to the reactor who is about to
+// answer it (`replay`); once a turn is finished both recordings are open to everyone.
+async function duelView(env, duel, myId) {
+  const { hash } = await env.DB.prepare("SELECT hash FROM ledger WHERE kind = 'day' AND day = ?").bind(duel.day).first();
+  const music = beat(hash), spb = 60000 / music.bpm;
+  const rows = (await env.DB.prepare("SELECT turn, act, react FROM duel_turns WHERE duel_id = ? ORDER BY turn").bind(duel.id).all()).results;
+  const done = rows.filter((r) => r.react !== null), pending = rows.find((r) => r.react === null) ?? null;
+  const g = play(done.map((r) => ({ actor: readOf(r.act, spb), reactor: readOf(r.react, spb) })));
+  const me = myId === duel.p0 ? 0 : myId !== null && myId === duel.p1 ? 1 : null;
+  const t = done.length, actor = t % 2;
+  let next;
+  if (!duel.p1) next = { role: me === 0 ? "wait" : "join" };
+  else if (g.over) next = { role: "over" };
+  else if (!pending) next = { turn: t, role: me === actor ? "act" : me === null ? "watch" : "wait" };
+  else next = { turn: t, role: me === 1 - actor ? "react" : me === null ? "watch" : "wait", ...(me === 1 - actor ? { replay: JSON.parse(pending.act) } : {}) };
+  return {
+    id: duel.id, day: duel.day, me, joined: !!duel.p1, state: g.state, over: g.over, winner: g.winner, next,
+    turns: g.log.map((e, i) => ({ ...e, act: JSON.parse(done[i].act), react: JSON.parse(done[i].react) })),
+    music: { bpm: music.bpm, style: music.style, voice: music.voice, hits: music.hits, measures: music.measures },
+  };
+}
+
+async function duelNew(ctx) {
+  const { env } = ctx;
+  if (!(await rateLimit(env, ctx.req, "new-duel", 10, 3600))) throw new Oops("Too many new duels from here. Try again later.", 429);
+  const me = await player(ctx, true), t = await sealToday(env);
+  if (t.sealed) ctx.waitUntil?.(checkpoint(env));
+  const row = await env.DB.prepare("INSERT INTO duels (day, p0, created_at) VALUES (?, ?, ?) RETURNING id").bind(t.day, me.id, now()).first();
+  return { id: row.id };
+}
+
+async function duelJoin(ctx) {
+  const { env } = ctx, id = duelIdOf((await body(ctx.req)).id), duel = await duelRow(env, id);
+  const me = await player(ctx, true);
+  if (duel.p0 === me.id) throw new Oops("That's your own duel. Send its link to someone else.");
+  const r = await env.DB.prepare("UPDATE duels SET p1 = ? WHERE id = ? AND p1 IS NULL").bind(me.id, id).run();
+  if (!r.meta.changes && duel.p1 !== me.id) throw new Oops("That duel already has two players.", 409);
+  return duelView(env, await duelRow(env, id), me.id);
+}
+
+async function duelGet(ctx) {
+  const id = duelIdOf(new URL(ctx.req.url).searchParams.get("id")), me = await player(ctx);
+  return duelView(ctx.env, await duelRow(ctx.env, id), me ? me.id : null);
+}
+
+async function duelPlay(ctx) {
+  const { env } = ctx, b = await body(ctx.req), id = duelIdOf(b.id), me = await must(ctx), duel = await duelRow(env, id);
+  const view = await duelView(env, duel, me.id), { role, turn } = view.next;
+  if (role !== "act" && role !== "react") throw new Oops(view.over ? "That duel is over." : "It's not your turn.", 409);
+  if (b.turn !== turn) throw new Oops("That isn't the current turn.", 409);
+  const spb = 60000 / view.music.bpm, presses = JSON.stringify(cleanPresses(b.presses, spb));
+  if (role === "act") {
+    try { await env.DB.prepare("INSERT INTO duel_turns (duel_id, turn, act, created_at) VALUES (?, ?, ?, ?)").bind(id, turn, presses, now()).run(); }
+    catch (e) { if (/UNIQUE|PRIMARY/i.test(String(e && e.message))) throw new Oops("That turn was already played.", 409); throw e; }
+  } else {
+    const r = await env.DB.prepare("UPDATE duel_turns SET react = ? WHERE duel_id = ? AND turn = ? AND react IS NULL").bind(presses, id, turn).run();
+    if (!r.meta.changes) throw new Oops("That turn was already played.", 409);
+  }
+  return duelView(env, duel, me.id);
+}
+
+// Your duels, newest first, each in a line: whose turn it is and the score so far.
+async function duelList(ctx) {
+  const me = await player(ctx);
+  if (!me) return { duels: [] };
+  const { results } = await ctx.env.DB.prepare("SELECT id, day, p0, p1 FROM duels WHERE p0 = ? OR p1 = ? ORDER BY id DESC LIMIT 20").bind(me.id, me.id).all();
+  const duels = [];
+  for (const d of results) {
+    const v = await duelView(ctx.env, d, me.id);
+    duels.push({ id: v.id, day: v.day, me: v.me, joined: v.joined, over: v.over, winner: v.winner, hp: v.state.hp, role: v.next.role });
+  }
+  return { duels };
+}
+
 // ---------- save codes and passkeys (kept by the shared Accounts service in dungeon-items) ----------
 // This game keeps its own players and cookie. Save codes and passkeys belong to an account there; the account says which
 // player here is yours. A player gets an account the first time they make a code or passkey.
@@ -263,6 +375,7 @@ async function logout(ctx) {
 
 const ROUTES = {
   "GET /api/today": today, "POST /api/run": saveRun, "GET /api/ledger": ledger,
+  "POST /api/duel/new": duelNew, "POST /api/duel/join": duelJoin, "GET /api/duel": duelGet, "POST /api/duel/play": duelPlay, "GET /api/duels": duelList,
   "GET /api/account": account, "POST /api/codes": codes, "POST /api/load": loadCode, "POST /api/passkey": passkey, "POST /api/logout": logout,
 };
 

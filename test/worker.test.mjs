@@ -159,7 +159,7 @@ test("the migrations build the same tables as schema.sql", () => {
   fresh.exec(readFileSync(new URL("../schema.sql", import.meta.url), "utf8"));
   // the ledger table came first, straight from schema.sql (v0.1); then the migrations
   old.exec(readFileSync(new URL("../schema.sql", import.meta.url), "utf8").split("-- v0.8")[0]);
-  for (const m of ["001_runs.sql", "002_accounts.sql"]) old.exec(readFileSync(new URL("../migrations/" + m, import.meta.url), "utf8"));
+  for (const m of ["001_runs.sql", "002_accounts.sql", "003_duels.sql"]) old.exec(readFileSync(new URL("../migrations/" + m, import.meta.url), "utf8"));
   const shape = (d) => d.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'index') AND name NOT LIKE 'sqlite_%' ORDER BY name").all()
     .map((r) => r.name + ":" + d.prepare(`SELECT group_concat(name || ' ' || type || ' ' || "notnull", ',') AS c FROM pragma_table_info('${r.name}')`).get().c);
   assert.deepEqual(shape(old), shape(fresh));
@@ -224,6 +224,67 @@ test("taps are rounded to whole ms before scoring, so the sealed taps give the s
     assert.ok(rec.taps.every(Number.isInteger));
     const again = score(t.targets.map((x) => x.at * spb), rec.taps), n = (g) => again.filter((r) => r.grade === g).length;
     assert.deepEqual(a.run, { perfect: n("perfect"), good: n("good"), miss: n("miss") });
+  } finally { globalThis.fetch = real; }
+});
+
+test("a duel: two players, eight turns, the actor records blind, the reactor answers live, the server works out the fight", async () => {
+  const real = globalThis.fetch;
+  try {
+    const { env, call } = setup();
+    const spb = 60000 / (await call("/api/today")).bpm;
+    // an attack: down on beat 2, held past beat 3, a tap on beat 4 (50 ms late is a good tap: 2 damage)
+    const attack = (lateBy = 50) => [{ down: spb, up: 2.2 * spb }, { down: 3 * spb + lateBy, up: 3.1 * spb + lateBy }];
+    const ann = (await call("/api/duel/new", { body: {} }));
+    const A = ann.cookie.split(";")[0], id = ann.id;
+    assert.equal(id, 1);
+    let v = await call("/api/duel?id=1", { cookie: A });
+    assert.deepEqual([v.me, v.joined, v.next], [0, false, { role: "wait" }], "the maker waits for someone to join");
+    assert.equal((await call("/api/duel/join", { body: { id }, cookie: A })).status, 400, "you can't fight yourself");
+    assert.equal((await call("/api/duel?id=1")).next.role, "join", "a stranger can join");
+    const bob = await call("/api/duel/join", { body: { id } });
+    const B = bob.cookie.split(";")[0];
+    assert.deepEqual([bob.me, bob.joined, bob.next], [1, true, { turn: 0, role: "wait" }], "player 1 waits while player 0 acts first");
+    assert.equal((await call("/api/duel/join", { body: { id }, ip: "5.5.5.5" })).status, 409, "a third player can't take a seat");
+    assert.equal((await call("/api/duel/play", { body: { id, turn: 0, presses: attack() }, cookie: B })).status, 409, "it's not B's turn to act");
+
+    // turn 0: A attacks (a good tap, 2 damage); B sees the recording and guards on beat 3, 50 ms late: a good guard
+    const a0 = await call("/api/duel/play", { body: { id, turn: 0, presses: attack() }, cookie: A });
+    assert.equal(a0.next.role, "wait");
+    assert.equal(a0.next.replay, undefined, "the actor never sees their own recording come back as a replay");
+    assert.equal((await call("/api/duel/play", { body: { id, turn: 0, presses: attack() }, cookie: A })).status, 409, "a turn is played once");
+    v = await call("/api/duel?id=1", { cookie: B });
+    assert.deepEqual([v.next.turn, v.next.role, v.next.replay.map((p) => p.down)], [0, "react", [Math.round(spb), Math.round(3 * spb + 50)]]);
+    assert.equal((await call("/api/duel?id=1")).next.replay, undefined, "a stranger doesn't get the replay either");
+    assert.equal((await call("/api/duel/play", { body: { id, turn: 1, presses: [] }, cookie: B })).status, 409, "that isn't the current turn");
+    assert.equal((await call("/api/duel/play", { body: { id, turn: 0, presses: "x" }, cookie: B })).status, 400);
+    assert.equal((await call("/api/duel/play", { body: { id, turn: 0, presses: [{ down: 1e9, up: null }] }, cookie: B })).status, 400);
+    assert.equal((await call("/api/duel/play", { body: { id, turn: 0, presses: [{ down: 100, up: null }, { down: 200, up: null }] }, cookie: B })).status, 400, "one finger at a time");
+    const b0 = await call("/api/duel/play", { body: { id, turn: 0, presses: [{ down: 2 * spb + 50, up: 3.5 * spb }] }, cookie: B });
+    // a good guard lets half of 2 through: 1 damage; B's meter was 0 so the guard cost nothing; A's hit did damage: meter 1
+    assert.deepEqual([b0.state.hp, b0.state.meter, b0.state.pos], [[10, 9], [1, 0], [2, 4]]);
+    assert.deepEqual([b0.turns[0].move, b0.turns[0].reaction, b0.turns[0].guard, b0.turns[0].damage], ["attack", "guard", "good", 1]);
+    assert.deepEqual([b0.next.turn, b0.next.role], [1, "act"], "now B acts");
+
+    // turn 1: B advances (a single perfect tap on beat 4: one space toward A); A answers with nothing
+    await call("/api/duel/play", { body: { id, turn: 1, presses: [{ down: 3 * spb, up: 3.1 * spb }] }, cookie: B });
+    const a1 = await call("/api/duel/play", { body: { id, turn: 1, presses: [] }, cookie: A });
+    assert.deepEqual([a1.state.hp, a1.state.meter, a1.state.pos, a1.turns[1].move], [[10, 9], [1, 0], [2, 3], "advance"]);
+    const list = await call("/api/duels", { cookie: A });
+    assert.deepEqual(list.duels, [{ id: 1, day: v.day, me: 0, joined: true, over: false, winner: null, hp: [10, 9], role: "act" }]);
+
+    // turns 2 to 7: both just attack with good taps and answer with nothing. Hand-worked from [10, 9], meters [1, 0]:
+    //   t2 A: [10,7]  t3 B: [8,7]  t4 A: [8,5]  t5 B: [6,5]  t6 A: [6,3]  t7 B: [4,3]  -> player 0 wins 4 to 3
+    let last;
+    for (let t = 2; t < 8; t++) {
+      const [actor, reactor] = t % 2 ? [B, A] : [A, B];
+      await call("/api/duel/play", { body: { id, turn: t, presses: attack() }, cookie: actor });
+      last = await call("/api/duel/play", { body: { id, turn: t, presses: [] }, cookie: reactor });
+    }
+    assert.deepEqual([last.state.hp, last.over, last.winner, last.next], [[4, 3], true, 0, { role: "over" }]);
+    assert.equal((await call("/api/duel/play", { body: { id, turn: 8, presses: [] }, cookie: A })).status, 409, "the duel is over");
+    assert.equal(env.DB.raw.prepare("SELECT COUNT(*) AS n FROM duel_turns WHERE react IS NOT NULL").get().n, 8);
+    assert.equal(env.DB.raw.prepare("SELECT COUNT(*) AS n FROM ledger").get().n, 1, "duels aren't sealed on the ledger (yet): only the day is");
+    assert.equal((await call("/api/duel?id=99")).status, 404);
   } finally { globalThis.fetch = real; }
 });
 

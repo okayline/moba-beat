@@ -12,7 +12,7 @@
 moba-beat: a rhythm micro-MOBA auto-battler, daily and async, played like Rhythm Tengoku (GBA): a daily song over a hidden beat, and you tap on the silent beat 4. Design and detailed history are in the private dungeon-notes repo: `moba-beat/design.md` and `moba-beat/changelog-v0.1.md`.
 
 - **Push only when the user says to.** The Worker is connected to this repo, so a push to `main` is a release.
-- **One place for each rule**, loaded by both the Worker and the page: the day's music in `public/beat.js`, scoring in `public/score.js`, the hash and chain check in `public/chain.js`, and the fight in `public/fight.js` (a pure function, not wired into the page yet). Change a rule there, once.
+- **One place for each rule**, loaded by both the Worker and the page: the day's music in `public/beat.js`, scoring in `public/score.js`, the hash and chain check in `public/chain.js`, the day's sound in `public/audio.js`, what a measure of finger work means in `public/moves.js` (hold and tap, graded with `score.js`), and the duel's rules in `public/duel.js` (pure functions, loaded by the Worker and `duel.html`; the state of a duel is always worked out from the stored presses). Change a rule there, once.
 - **Timing is fixed**: perfect within 35 ms, good within 80 ms. The owner said not to change it.
 - **Sound is samples only**: no browser oscillators, ever. Every sound is a recording in `public/samples/` (CC0, sources in its README), one pack per kit. The chord pad is gone for good.
 - **The ledger is a hash chain** (`src/ledger.js`): a `day` entry (its hash makes the day's music) and one `run` entry per player per day, the first finished run. Records hold player ids, never names. Don't weaken `prev_hash UNIQUE`.
