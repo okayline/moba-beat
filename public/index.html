@@ -27,6 +27,7 @@
         <span class="num">1</span><span class="num">2</span><span class="num">3</span><span class="num">4</span>
         <span id="l0"></span><span id="l1"></span><span id="l2"></span><span id="l3" class="four"></span>
       </div>
+      <canvas class="lane" id="lane" aria-hidden="true"></canvas>
       <button class="pad" id="pad" type="button">Press / hold</button>
     </section>
     <div class="controls">
@@ -34,6 +35,11 @@
       <p class="bpm"><span id="style" class="style"></span> <span id="bpm">–</span> BPM</p>
     </div>
     <p class="status" id="status" role="status"></p>
+    <div class="timing">
+      <label for="offset">Tap timing</label>
+      <input type="range" id="offset" min="-150" max="150" step="5" value="0">
+      <span id="offsetVal">0 ms</span>
+    </div>
 
     <section class="moves" aria-labelledby="moves-title">
       <h2 id="moves-title">Moves</h2>
@@ -43,7 +49,7 @@
 
     <section class="log-sec" aria-labelledby="log-title">
       <h2 id="log-title">What happened</h2>
-      <ol class="log" id="log"></ol>
+      <ol class="log" id="log" reversed></ol>
     </section>
   </main>
 

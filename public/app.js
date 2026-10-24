@@ -3,6 +3,9 @@
 // One button: a press is { down, up } in beats from the fight's first beat, timed on the Web Audio clock less the
 // device's output delay (audio.js). Each step's measure is read by moves.js half a beat after it ends, and the fight
 // so far is worked out again from all the reads (ghost.js). Nothing is saved yet.
+// The lane (a canvas) scrolls the coming beats right to left past a line: each measure tinted by what happens in it,
+// with dots where to press. The tap timing slider moves every press later or earlier, for devices whose sound delay the
+// browser reports wrong; it is kept in this browser.
 import { VERSION } from "./version.js";
 import { TAP } from "./beat.js";
 import { createAudio } from "./audio.js";
@@ -26,6 +29,35 @@ $("guide").innerHTML = GUIDE.map(([name, who, holds, taps]) => `<div class="mv" 
   <div class="beats">${[1, 2, 3, 4].map((n) => `<span class="${n === 4 ? "four" : ""}">${n}</span>`).join("")}
   ${holds.map(([a, b]) => `<i class="hold" style="left:${a * 25 + 12.5}%;width:${(b - a) * 25}%"></i>`).join("")}
   ${taps.map((t) => `<i class="tap" style="left:${t * 25 + 12.5}%"></i>`).join("")}</div></div>`).join("");
+
+// Tap timing: ms added to every press (positive counts your taps later). Kept in this browser only.
+let offset = 0;
+try { offset = Number(localStorage.getItem("mb-offset")) || 0; } catch {}
+const showOffset = () => { $("offset").value = offset; $("offsetVal").textContent = `${offset > 0 ? "+" : ""}${offset} ms${offset > 0 ? " later" : offset < 0 ? " earlier" : ""}`; };
+showOffset();
+$("offset").addEventListener("input", () => { offset = Number($("offset").value); showOffset(); try { localStorage.setItem("mb-offset", String(offset)); } catch {} });
+
+// The lane: 2 measures ahead, half a measure behind the line. Charge measures are gold with a dot on beat 4, the
+// ghost's are pink with a ring on beat 3 (where a guard starts), yours are blue with dots on beats 3 and 4 (attack).
+const KIND = { charge: ["#ffb020", [3], false], ghost: ["#ff6b8a", [2], true], player: ["#5b82ff", [2, 3], false] };
+function drawLane(b) {
+  const c = $("lane"), r = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w * r)) { c.width = Math.round(w * r); c.height = Math.round(h * r); }
+  const g = c.getContext("2d"); g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, w, h);
+  const lineX = w * 0.2, perBeat = (w - lineX) / 8, x = (beat) => lineX + (beat - b) * perBeat;
+  for (const step of STEPS) {
+    const [color, dots, ring] = KIND[step.kind], m0 = step.measure * 4;
+    if (x(m0 + 4) < 0 || x(m0) > w) continue;
+    g.globalAlpha = 0.16; g.fillStyle = color; g.fillRect(x(m0), 6, perBeat * 4, h - 12); g.globalAlpha = 1;
+    for (const d of dots) {
+      g.beginPath(); g.arc(x(m0 + d), h / 2, 8, 0, Math.PI * 2);
+      if (ring) { g.strokeStyle = color; g.lineWidth = 3; g.stroke(); } else { g.fillStyle = color; g.fill(); }
+    }
+  }
+  g.strokeStyle = "#3a4361"; g.lineWidth = 1;
+  for (let k = Math.floor(b - 2); k < b + 9; k++) { if (k < 0) continue; const xx = x(k); g.beginPath(); g.moveTo(xx, k % 4 === 0 ? 4 : h - 16); g.lineTo(xx, h - 4); g.stroke(); }
+  g.strokeStyle = "#e7ebf5"; g.lineWidth = 2; g.beginPath(); g.moveTo(lineX, 2); g.lineTo(lineX, h - 2); g.stroke();
+}
 
 let day, audio = null, spb = 0, t0 = 0, raf = 0, token = 0, presses = [], reads = [], down = null, f = null, cueAt = -1, shown = -1;
 
@@ -70,7 +102,7 @@ function callFor(M) {
 
 function reset() {
   presses = []; reads = []; f = fight(day.hash, []);
-  drawState(f.state); $("log").innerHTML = ""; $("result").textContent = "";
+  drawState(f.state); $("log").innerHTML = ""; $("result").textContent = ""; drawLane(-4);
   $("call").className = "call"; $("call").textContent = "Press Start. Measure 1 is your first charge.";
 }
 
@@ -84,6 +116,7 @@ function stop() {
 }
 
 const now = () => (audio.ctx.currentTime - audio.heardLate() - t0) / spb;   // beats since the fight's first beat, as heard
+const pressAt = () => now() + offset / 1000 / spb;                             // a press, moved by the tap timing
 
 async function begin() {
   stop(); reset();
@@ -103,6 +136,7 @@ async function begin() {
   const frame = () => {
     if (!audio || my !== token) return;
     const b = now();
+    drawLane(b);
     for (let i = 0; i < 4; i++) $("l" + i).classList.toggle("on", b >= 0 && b < end && Math.floor(b % 4) === i);
     const k = reads.length, A = STEPS[k].measure, M = Math.floor(b / 4);
     if (b >= 0 && M !== shown && M <= A) { shown = M; callFor(M); }
@@ -116,7 +150,7 @@ async function begin() {
       f = fight(day.hash, reads);
       drawState(f.state);
       const e = f.log[f.log.length - 1];
-      const li = document.createElement("li"); li.className = e.actor === 0 ? "you" : "ghost"; li.textContent = line(e); $("log").appendChild(li);
+      const li = document.createElement("li"); li.className = e.actor === 0 ? "you" : "ghost"; li.textContent = line(e); $("log").prepend(li);
       if (f.over || reads.length === STEPS.length) { finish(); return; }
       shown = -1;
     }
@@ -134,13 +168,13 @@ function finish() {
 
 function press() {
   if (!audio || down) return;
-  down = { down: now(), up: null }; presses.push(down);
+  down = { down: pressAt(), up: null }; presses.push(down);
   $("pad").classList.add("down");
   audio.sample(TAP[day.style], audio.ctx.currentTime, 0.9);
 }
 function release() {
   if (!down) return;
-  if (audio) down.up = now();
+  if (audio) down.up = pressAt();
   down = null; $("pad").classList.remove("down");
 }
 

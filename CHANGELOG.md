@@ -4,6 +4,13 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.10.9 — "Lane and timing"
+**Sat Oct 24, 2026 · 1:16 AM HST**
+
+- A scrolling lane above the button: the coming beats slide toward a line, each measure tinted by what happens in it (gold charge, pink ghost, blue your move) with dots where to press. Removed: nothing (the old scrolling beat lines went in v0.10.8).
+- A tap timing slider (−150 to +150 ms) moves every press later or earlier, for devices where taps land early or late. It is kept in your browser. Removed: nothing.
+- "What happened" shows the newest line first. Removed: oldest-first order.
+
 ## v0.10.8 — "Fight the ghost"
 **Sat Oct 24, 2026 · 1:12 AM HST**
 

@@ -46,6 +46,7 @@ a { color: var(--you); text-underline-offset: 3px; }
 .lamps span.on { background: var(--ink); }
 .lamps span.four.on { background: var(--strong); }
 .lamps .num { height: auto; background: none; font-size: .8rem; color: var(--muted); text-align: center; }
+.lane { display: block; width: 100%; height: 64px; background: var(--floor); border-radius: 12px; }
 .pad { font: inherit; font-weight: 800; font-size: 1.2rem; color: var(--ink); background: var(--floor); border: 2px solid var(--line); border-radius: 16px;
   min-height: 120px; cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
 .pad.down { background: var(--line); border-color: var(--ink); }
@@ -78,6 +79,9 @@ a { color: var(--you); text-underline-offset: 3px; }
 .k-tap { width: 12px; height: 12px; border-radius: 50%; background: var(--strong); }
 .k-hold { width: 22px; height: 9px; border-radius: 5px; background: var(--you); }
 .k-four { width: 14px; height: 14px; border-radius: 3px; background: rgba(255, 176, 32, .3); }
+.timing { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; color: var(--muted); font-size: .9rem; }
+.timing input { flex: 1; min-width: 140px; max-width: 280px; accent-color: var(--you); }
+.timing span { font-variant-numeric: tabular-nums; min-width: 6.5em; color: var(--ink); }
 .log { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 4px; }
 .log li.you { color: var(--you); }
 .log li.ghost { color: var(--ghost); }
