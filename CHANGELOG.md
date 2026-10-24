@@ -4,6 +4,13 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.10.7 — "Fuller drums"
+**Sat Oct 24, 2026 · 12:16 AM HST**
+
+- More beat patterns: each kit's rule now picks extra hits from more places, using the whole byte (0 to 255) for patterns A, B and C, so each kit has 256 patterns (hip-hop 247, since a pattern with fewer than 2 extra kicks gets the classic two). House adds quick hi-hats and an extra kick; hip-hop and bounce add kick places; tech house adds hi-hat places. Removed: the shared 108-pattern list (`pattern()`), which no kit used any more, and house's patterns made of that list's hats.
+- Real fills: measures 4 and 8 add a lead-in across beats 2 and 3 (8 kinds each, from bytes 1 and 2), and measures 2, 3, 6 and 7 add a small change (from bytes 12, 13, 16, 17). Measures 5 to 8 add two hi-hats. House plays hi-hats on every off-beat. Nothing ever plays on beat 4. Removed: fills that were only one extra hit, and A measures that repeated exactly.
+- Every day uses the new rules, past days too: an old day replayed (the ledger page) now sounds different from how it first played. Scores and the ledger don't change.
+
 ## v0.10.6 — "No duel page"
 **Fri Oct 23, 2026 · 12:45 PM HST**
 
