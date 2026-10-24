@@ -52,7 +52,7 @@ async function calibrate() {
   audio = a; try { await a.ctx.resume(); } catch {}
   spb = 60 / day.bpm; t0 = a.ctx.currentTime + 0.4; cal = [];
   for (let i = 0; i < CAL_BEATS; i++) a.sample("hat", t0 + i * spb, i % 4 === 0 ? 0.9 : 0.6);
-  $("call").className = "call you"; $("call").textContent = "Tap along";
+  $("call").className = "call you"; $("call").textContent = "Tap along"; $("pad").textContent = "Tap to Calibrate!";
   const frame = () => {
     if (!audio || my !== token) return;
     const b = now();
@@ -162,7 +162,7 @@ function stop() {
   token++; cancelAnimationFrame(raf);
   if (audio) { try { audio.ctx.close(); } catch {} }
   audio = null; down = null; $("pad").classList.remove("down");
-  $("play").textContent = "Start fight"; $("cal").textContent = "Calibrate"; cal = null;
+  $("play").textContent = "Start fight"; $("cal").textContent = "Calibrate"; $("pad").textContent = "Press / hold"; cal = null;
   for (let i = 0; i < 4; i++) $("l" + i).classList.remove("on");
   if (f) lightGuide(null);
 }

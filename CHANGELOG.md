@@ -4,6 +4,12 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.10.13 — "Bold"
+**Sat Oct 24, 2026 · 1:40 AM HST**
+
+- While calibrating, the big button says "Tap to Calibrate!". Removed: "Press / hold" on it during calibration (it comes back when calibration ends).
+- All normal-weight text is bold, and the "Beat Fighter II:" name at the top left is bigger and stays on one line; on a phone the date, Ledger and Account move to the line below it. Removed: the normal-weight text.
+
 ## v0.10.12 — "Calibrate"
 **Sat Oct 24, 2026 · 1:40 AM HST**
 
