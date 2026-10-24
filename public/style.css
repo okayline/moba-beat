@@ -81,8 +81,9 @@ a { color: var(--you); text-underline-offset: 3px; }
 .k-tap { width: 12px; height: 12px; border-radius: 50%; background: var(--strong); }
 .k-hold { width: 22px; height: 9px; border-radius: 5px; background: var(--you); }
 .k-four { width: 14px; height: 14px; border-radius: 3px; background: rgba(255, 176, 32, .3); }
-.timing { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; min-width: 220px; color: var(--muted); font-size: .9rem; }
-.timing input { flex: 1; min-width: 140px; max-width: 280px; accent-color: var(--you); }
+.timing { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: .9rem; }
+.cal { font: inherit; font-weight: 600; color: var(--ink); background: var(--lane); border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px; cursor: pointer; }
+.cal:disabled { opacity: .4; cursor: default; }
 .timing span { font-variant-numeric: tabular-nums; min-width: 6.5em; color: var(--ink); }
 .log { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 4px; }
 .log li.you { color: var(--you); }

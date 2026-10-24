@@ -4,6 +4,11 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.10.12 — "Calibrate"
+**Sat Oct 24, 2026 · 1:40 AM HST**
+
+- A Calibrate button: a hi-hat plays on every beat for 3 measures and you tap along; the first 4 taps are skipped, and the average of the rest sets your timing (shown as "Your timing: +40 ms", kept in your browser). Taps too uneven (more than 100 ms apart) say "Too uneven, try again". Removed: the tap timing slider (a value you set with it carries over).
+
 ## v0.10.11 — "Late!"
 **Sat Oct 24, 2026 · 1:27 AM HST**
 

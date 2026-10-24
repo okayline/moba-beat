@@ -31,12 +31,45 @@ $("guide").innerHTML = GUIDE.map(([name, who, holds, taps]) => `<div class="mv" 
   ${holds.map(([a, b]) => `<i class="hold" style="left:${a * 25 + 12.5}%;width:${(b - a) * 25}%"></i>`).join("")}
   ${taps.map((t) => `<i class="tap" style="left:${t * 25 + 12.5}%"></i>`).join("")}</div></div>`).join("");
 
-// Tap timing: ms added to every press (positive counts your taps later). Kept in this browser only.
+// Tap timing: ms added to every press (positive counts your taps later), set by calibrating. Kept in this browser only.
 let offset = 0;
 try { offset = Number(localStorage.getItem("mb-offset")) || 0; } catch {}
-const showOffset = () => { $("offset").value = offset; $("offsetVal").textContent = `${offset > 0 ? "+" : ""}${offset} ms${offset > 0 ? " later" : offset < 0 ? " earlier" : ""}`; };
+const showOffset = () => { $("offsetVal").textContent = `Your timing: ${offset > 0 ? "+" : ""}${offset} ms`; };
 showOffset();
-$("offset").addEventListener("input", () => { offset = Number($("offset").value); showOffset(); try { localStorage.setItem("mb-offset", String(offset)); } catch {} });
+
+// Calibrating: a hi-hat on every beat for CAL_BEATS beats at today's tempo; you tap along. The first CAL_SKIP taps are
+// ignored, the rest are timed against their nearest beat, and the average (sign flipped) becomes the offset. Taps more
+// than CAL_SPREAD ms apart from each other are too uneven to use.
+const CAL_BEATS = 12, CAL_SKIP = 4, CAL_SPREAD = 100;
+let cal = null;   // the taps' errors in ms while calibrating, else null
+async function calibrate() {
+  stop(); reset();
+  const my = ++token;
+  $("cal").textContent = "Stop";
+  let a;
+  try { a = await createAudio(day); } catch { if (my === token) { stop(); $("status").textContent = "Today's drums didn't load. Reload the page to try again."; } return; }
+  if (my !== token) { try { a.ctx.close(); } catch {} return; }
+  audio = a; try { await a.ctx.resume(); } catch {}
+  spb = 60 / day.bpm; t0 = a.ctx.currentTime + 0.4; cal = [];
+  for (let i = 0; i < CAL_BEATS; i++) a.sample("hat", t0 + i * spb, i % 4 === 0 ? 0.9 : 0.6);
+  $("call").className = "call you"; $("call").textContent = "Tap along";
+  const frame = () => {
+    if (!audio || my !== token) return;
+    const b = now();
+    for (let i = 0; i < 4; i++) $("l" + i).classList.toggle("on", b >= 0 && b < CAL_BEATS && Math.floor(b % 4) === i);
+    if (b < CAL_BEATS + 0.5) { raf = requestAnimationFrame(frame); return; }
+    const used = cal.slice(CAL_SKIP);
+    const spread = used.length ? Math.max(...used) - Math.min(...used) : Infinity;
+    if (used.length < 4 || spread > CAL_SPREAD) $("call").textContent = "Too uneven, try again";
+    else {
+      offset = -Math.round(used.reduce((x, y) => x + y, 0) / used.length);
+      try { localStorage.setItem("mb-offset", String(offset)); } catch {}
+      showOffset(); $("call").textContent = "Calibrated!";
+    }
+    $("call").className = "call"; cal = null; stop();
+  };
+  frame();
+}
 
 // The lane: 6 beats ahead of the line and 4 behind, so a finished measure's label stays in view a moment. Charge measures are gold with a dot on beat 4, the
 // ghost's are pink with a ring on beat 3 (where a guard starts), yours are blue with dots on beats 3 and 4 (attack).
@@ -129,7 +162,7 @@ function stop() {
   token++; cancelAnimationFrame(raf);
   if (audio) { try { audio.ctx.close(); } catch {} }
   audio = null; down = null; $("pad").classList.remove("down");
-  $("play").textContent = "Start fight";
+  $("play").textContent = "Start fight"; $("cal").textContent = "Calibrate"; cal = null;
   for (let i = 0; i < 4; i++) $("l" + i).classList.remove("on");
   if (f) lightGuide(null);
 }
@@ -187,6 +220,12 @@ function finish() {
 
 function press() {
   if (!audio || down) return;
+  if (cal) {   // calibrating: time the tap, unmoved by the current offset, against the nearest beat
+    const b = now();
+    if (b > -0.5) cal.push(Math.round((b - Math.round(b)) * spb * 1000));
+    down = { down: b, up: null }; $("pad").classList.add("down");
+    audio.sample(TAP[day.style], audio.ctx.currentTime, 0.9); return;
+  }
   down = { down: pressAt(), up: null }; presses.push(down);
   // later than perfect against the nearest beat: a little "Late!" (early shows nothing)
   const late = (down.down - Math.round(down.down)) * spb * 1000;
@@ -213,10 +252,11 @@ async function load() {
   $("bpm").textContent = day.bpm;
   $("style").textContent = day.style;
   reset();
-  $("play").disabled = false;
+  $("play").disabled = false; $("cal").disabled = false;
 }
 
 $("play").addEventListener("click", () => { if (audio) { stop(); reset(); } else begin(); });
+$("cal").addEventListener("click", () => { if (audio) { stop(); reset(); } else calibrate(); });
 const pad = $("pad");
 pad.addEventListener("pointerdown", (e) => { e.preventDefault(); try { pad.setPointerCapture(e.pointerId); } catch {} press(); });
 pad.addEventListener("pointerup", release); pad.addEventListener("pointercancel", release);
