@@ -1,30 +1,148 @@
-// The page: today's music from /api/today: the drums, through a little reverb. The drums play beats 1 to 3 of each measure over a fixed metronome at the
-// day's tempo; the metronome is never heard and beat 4 is silent. The feed (feed.js) scrolls the beat lines past a line while you play. The player taps beat 4 (the tap plays the kit's sound for it). Some
-// measures have an enemy wind-up: a cue sound on beat 1, and the attack lands 2 beats later, where the player taps to
-// parry. Every tap is scored against the metronome (score.js). Everything is
-// scheduled on the Web Audio clock, and taps are timed on the same clock. A good tap makes your squad flash.
+// The daily page: a fight against the day's ghost (ghost.js), the one opponent everyone fights that day, over the day's
+// song from /api/today. The song plays LOOPS times; each half of a run goes charge, the ghost acts, charge, you act.
+// One button: a press is { down, up } in beats from the fight's first beat, timed on the Web Audio clock less the
+// device's output delay (audio.js). Each step's measure is read by moves.js half a beat after it ends, and the fight
+// so far is worked out again from all the reads (ghost.js). Nothing is saved yet.
 import { VERSION } from "./version.js";
 import { TAP } from "./beat.js";
 import { createAudio } from "./audio.js";
-import { MAX_TAPS, score } from "./score.js";
+import { read } from "./moves.js";
+import { HP, METER } from "./duel.js";
+import { fight, STEPS, LOOPS } from "./ghost.js";
 import { setupAccount } from "./account.js";
-import { drawFeed, flash } from "./feed.js";
 
 const $ = (id) => document.getElementById(id);
 $("version").textContent = VERSION;
 
-// working names for the three roles, each with its own shape
-const SHAPES = {
-  Clutch: '<svg viewBox="0 0 44 44"><path d="M22 2 L42 22 L22 42 L2 22 Z" fill="currentColor"/></svg>',
-  Feed: '<svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="20" fill="currentColor"/></svg>',
-  Tilt: '<svg viewBox="0 0 44 44"><path d="M22 3 L42 40 L2 40 Z" fill="currentColor"/></svg>',
-};
-for (const id of ["you", "ghost"]) $(id).innerHTML = Object.entries(SHAPES).map(([n, svg]) => `<div class="unit"><div class="token">${svg}</div><span>${n}</span></div>`).join("");
+const MOVE = { attack: "Attack", super: "SUPER", guard: "Guard", none: "nothing", unclear: "nothing clear" };
+// The moves, beat by beat (beats 0 to 3 across the measure): holds are [from, to], taps are a beat.
+const GUIDE = [
+  ["Charge", "you", [], [3]],
+  ["Attack", "you", [], [2, 3]],
+  ["Guard", "ghost", [[2, 3.3]], []],
+  ["Super", "you", [[0, 2.3]], [3]],
+];
+$("guide").innerHTML = GUIDE.map(([name, who, holds, taps]) => `<div class="mv" data-move="${name}"><span class="nm ${who}">${name}</span>
+  <div class="beats">${[1, 2, 3, 4].map((n) => `<span class="${n === 4 ? "four" : ""}">${n}</span>`).join("")}
+  ${holds.map(([a, b]) => `<i class="hold" style="left:${a * 25 + 12.5}%;width:${(b - a) * 25}%"></i>`).join("")}
+  ${taps.map((t) => `<i class="tap" style="left:${t * 25 + 12.5}%"></i>`).join("")}</div></div>`).join("");
 
-const COUNT_IN = 3;                 // silent beats before the song: the countdown -3, -2, -1
-let day, audio, ctx, start, spb, targets, taps = [], raf = null, playing = false;
-const arena = document.querySelector(".arena");
-const cells = () => $("track").querySelectorAll(".step.on");
+let day, audio = null, spb = 0, t0 = 0, raf = 0, token = 0, presses = [], reads = [], down = null, f = null, cueAt = -1, shown = -1;
+
+function drawState(state) {
+  for (const p of [0, 1]) {
+    $("hp" + p).textContent = state.hp[p];
+    $("life" + p).style.width = (100 * state.hp[p] / HP) + "%";
+    $("meter" + p).innerHTML = Array.from({ length: METER }, (_, i) =>
+      `<b class="${state.meter[p] >= i + 1 ? "on" : state.meter[p] >= i + 0.5 ? "half" : ""}"></b>`).join("");
+  }
+}
+
+// Light up the moves you can do in this measure and dim the rest; null shows them all.
+function lightGuide(kind) {
+  const can = kind === "charge" ? ["Charge"] : kind === "ghost" ? ["Guard", "Charge"]
+    : kind === "player" ? ["Charge", "Attack", ...(f.state.meter[0] >= METER ? ["Super"] : [])] : null;
+  $("guide").classList.toggle("live", !!can);
+  for (const c of $("guide").children) c.classList.toggle("can", !!can && can.includes(c.dataset.move));
+}
+
+function line(e) {
+  if (e.kind === "charge" || e.move === "charge") return e.charged ? "You charged: perfect, +½ pip." : "You charged: no pip.";
+  const who = e.actor === 0 ? "You" : "Ghost";
+  let s = `${who}: ${MOVE[e.move] ?? e.move}`;
+  if (e.wasted) s += ", a wasted turn: 1 life lost";
+  else if (e.move === "attack" || e.move === "super") s += `${e.crit ? " (crit)" : ""}, ${e.damage} damage`;
+  if (e.reaction === "guard") s += `. ${e.actor === 0 ? "The ghost" : "You"} guarded (${e.guard})`;
+  if (e.charged) s += ". You charged: +½ pip";
+  return s + ".";
+}
+
+function callFor(M) {
+  const c = $("call"), k = reads.length, step = STEPS[k], A = step.measure, m = f.next?.move;
+  lightGuide(M === A ? step.kind : null);
+  if (M < A) { c.className = "call"; c.textContent = "Get ready"; }
+  else if (step.kind === "charge") { c.className = "call you"; c.textContent = "Charge! Tap beat 4"; }
+  else if (step.kind === "ghost") {
+    c.className = "call ghost";
+    c.textContent = m === "super" ? "The ghost winds up a SUPER!" : "The ghost winds up an attack!";
+  } else { c.className = "call you"; c.textContent = "Your move!"; }
+}
+
+function reset() {
+  presses = []; reads = []; f = fight(day.hash, []);
+  drawState(f.state); $("log").innerHTML = ""; $("result").textContent = "";
+  $("call").className = "call"; $("call").textContent = "Press Start. Measure 1 is your first charge.";
+}
+
+function stop() {
+  token++; cancelAnimationFrame(raf);
+  if (audio) { try { audio.ctx.close(); } catch {} }
+  audio = null; down = null; $("pad").classList.remove("down");
+  $("play").textContent = "Start fight";
+  for (let i = 0; i < 4; i++) $("l" + i).classList.remove("on");
+  if (f) lightGuide(null);
+}
+
+const now = () => (audio.ctx.currentTime - audio.heardLate() - t0) / spb;   // beats since the fight's first beat, as heard
+
+async function begin() {
+  stop(); reset();
+  const my = ++token;
+  $("play").textContent = "Stop";
+  let a;
+  try { a = await createAudio(day); } catch { if (my === token) { stop(); $("status").textContent = "Today's drums didn't load. Reload the page to try again."; } return; }
+  if (my !== token) { try { a.ctx.close(); } catch {} return; }
+  audio = a; try { await a.ctx.resume(); } catch {}
+  spb = 60 / day.bpm;
+  const lead = a.ctx.currentTime + 0.2;
+  t0 = lead + 4 * spb;                                                        // one measure of count-in
+  for (let i = 0; i < 4; i++) a.sample("hat", lead + i * spb, i === 3 ? 0.9 : 0.5);
+  for (let l = 0; l < LOOPS; l++) for (const h of day.hits) a.sample(h.drum, t0 + (l * day.measures * 4 + h.at) * spb);
+  cueAt = -1; shown = -1; callFor(0);
+  const end = LOOPS * day.measures * 4;
+  const frame = () => {
+    if (!audio || my !== token) return;
+    const b = now();
+    for (let i = 0; i < 4; i++) $("l" + i).classList.toggle("on", b >= 0 && b < end && Math.floor(b % 4) === i);
+    const k = reads.length, A = STEPS[k].measure, M = Math.floor(b / 4);
+    if (b >= 0 && M !== shown && M <= A) { shown = M; callFor(M); }
+    // the ghost's wind-up sound on beat 2 of its measure
+    if (STEPS[k].kind === "ghost" && cueAt !== k && b >= A * 4 - 1) { cueAt = k; audio.sample("cue", t0 + (A * 4 + 1) * spb, 0.7); }
+    // a step's measure is read half a beat after it ends (a late tap on beat 4 still counts)
+    if (b >= (A + 1) * 4 + 0.5) {
+      const mine = presses.filter((p) => Math.floor((p.down + 0.5) / 4) === A)
+        .map((p) => ({ down: p.down - A * 4, up: p.up == null ? null : p.up - A * 4 }));
+      reads.push(read(mine, spb * 1000));
+      f = fight(day.hash, reads);
+      drawState(f.state);
+      const e = f.log[f.log.length - 1];
+      const li = document.createElement("li"); li.className = e.actor === 0 ? "you" : "ghost"; li.textContent = line(e); $("log").appendChild(li);
+      if (f.over || reads.length === STEPS.length) { finish(); return; }
+      shown = -1;
+    }
+    raf = requestAnimationFrame(frame);
+  };
+  frame();
+}
+
+function finish() {
+  const w = f.winner, [h0, h1] = f.state.hp;
+  $("call").className = "call"; $("call").textContent = "Fight over.";
+  $("result").textContent = w === 0 ? `You win, ${h0} to ${h1}.` : w === 1 ? `The ghost wins, ${h1} to ${h0}.` : `A draw, ${h0} each.`;
+  const a = audio; setTimeout(() => { if (audio === a) stop(); }, 1500);
+}
+
+function press() {
+  if (!audio || down) return;
+  down = { down: now(), up: null }; presses.push(down);
+  $("pad").classList.add("down");
+  audio.sample(TAP[day.style], audio.ctx.currentTime, 0.9);
+}
+function release() {
+  if (!down) return;
+  if (audio) down.up = now();
+  down = null; $("pad").classList.remove("down");
+}
 
 async function load() {
   try {
@@ -38,130 +156,16 @@ async function load() {
   $("date").textContent = day.day;
   $("bpm").textContent = day.bpm;
   $("style").textContent = day.style;
-  // a step grid per measure: 8 eighths wide, one row per drum; beat 4 is the player's column
-  const ROWS = ["enemy", "hat", "snare", "kick"];
-  $("track").innerHTML = Array.from({ length: day.measures }, (_, m) => m).map((m) => {
-    const cells = ROWS.flatMap((drum, r) => Array.from({ length: 8 }, (_, e) => {
-      const at = m * 4 + e / 2;
-      if (drum === "enemy") {
-        const cue = day.cues.some((c) => c.at === at), lands = day.cues.some((c) => c.lands === at);
-        return `<span class="step enemy${cue ? " cue" : ""}${lands ? " parry" : ""}" style="grid-row:1;grid-column:${e + 1}"></span>`;
-      }
-      const hit = day.hits.findIndex((h) => h.at === at && h.drum === drum);
-      const you = e === 6 && drum === "snare";
-      return `<span class="step ${hit >= 0 ? "on " + drum : ""}${you ? " you" : ""}${e >= 6 ? " yours" : ""}" style="grid-row:${r + 1};grid-column:${e + 1}"${hit >= 0 ? ` data-k="${hit}"` : ""}></span>`;
-    }));
-    return `<li aria-label="Measure ${m + 1}">${cells.join("")}</li>`;
-  }).join("");
-  try {
-    audio = await createAudio(day);                      // starts paused; Play resumes it (browsers need a tap first)
-    ctx = audio.ctx;
-  } catch {
-    $("status").textContent = "Today's drums didn't load. Reload the page to try again.";
-    return;
-  }
+  reset();
   $("play").disabled = false;
-  drawFeed($("feed"), day, -COUNT_IN);
 }
 
-// Sounds come from audio.js (shared with the duel page).
-const sample = (kind, t, vol) => audio.sample(kind, t, vol);
+$("play").addEventListener("click", () => { if (audio) { stop(); reset(); } else begin(); });
+const pad = $("pad");
+pad.addEventListener("pointerdown", (e) => { e.preventDefault(); try { pad.setPointerCapture(e.pointerId); } catch {} press(); });
+pad.addEventListener("pointerup", release); pad.addEventListener("pointercancel", release);
+document.addEventListener("keydown", (e) => { if (e.code !== "Space" || e.repeat) return; if (e.target.closest?.("button:not(#pad), input")) return; e.preventDefault(); press(); });
+document.addEventListener("keyup", (e) => { if (e.code === "Space") { e.preventDefault(); release(); } });
 
-function play() {
-  $("reveal").hidden = true;                             // the grid stays hidden while you play: you play by ear
-  spb = 60 / day.bpm;
-  start = ctx.currentTime + 0.15 + COUNT_IN * spb;      // the song's first beat, on the audio clock
-  for (const h of day.hits) sample(h.drum, start + h.at * spb);
-  for (const c of day.cues) sample("cue", start + c.at * spb, 0.6);
-  targets = day.targets.map((x) => x.at * spb * 1000);   // ms from the song's first beat
-  taps = []; playing = true;
-  $("results").innerHTML = ""; $("status").textContent = ""; $("sealed").textContent = "";
-  $("play").disabled = true; $("tap").disabled = false; $("tap").focus();
-  raf = requestAnimationFrame(frame);
-}
-
-let lastBeat = null;
-function frame() {
-  const at = (ctx.currentTime - start) / spb;           // in beats from the song's first beat
-  drawFeed($("feed"), day, at);
-  // where you are: a countdown -3, -2, -1, then the beat of the measure, 1 to 3; beat 4 (your clap) shows nothing
-  const beatNo = Math.floor(at) % 4 + 1;
-  const count = at < -COUNT_IN ? "" : at < 0 ? String(Math.floor(at)) : at < day.measures * 4 && beatNo < 4 ? String(beatNo) : "";
-  if ($("count").textContent !== count) {
-    $("count").textContent = count;
-    $("count").classList.remove("pop"); void $("count").offsetWidth; $("count").classList.add("pop");
-  }
-  $("track").querySelectorAll("li").forEach((li, m) => li.classList.toggle("live", at >= m * 4 && at < m * 4 + 4));
-  let k = -1; day.hits.forEach((h, i) => { if (h.at <= at) k = i; });
-  if (k !== lastBeat) {                                  // a new note: light it and pulse the squads
-    lastBeat = k;
-    const t = k >= 0 ? day.hits[k].at : -1;
-    cells().forEach((c) => c.classList.toggle("now", day.hits[Number(c.dataset.k)].at === t));
-    if (k >= 0) { arena.classList.add("hit"); setTimeout(() => arena.classList.remove("hit"), 110); }
-    if (k === 0) $("status").textContent = "";
-  }
-  // a ghost unit winds up from its cue until the attack lands
-  const ghosts = $("ghost").querySelectorAll(".unit");
-  ghosts.forEach((u, i) => u.classList.toggle("winding", day.cues.some((c) => c.unit === i && at >= c.at && at < c.lands + 0.25)));
-  if (at >= day.measures * 4 + 1) return finish();
-  raf = requestAnimationFrame(frame);
-}
-
-// A tap is timed by when you heard the beat: the audio clock less the device's output delay (audio.js). Taps past
-// MAX_TAPS aren't counted (the server takes no more).
-const heardLate = () => audio.heardLate();
-function tap() {
-  if (!playing) return;
-  const ms = Math.round((ctx.currentTime - heardLate() - start) * 1000);
-  if (taps.length < MAX_TAPS) taps.push(ms);
-  sample(TAP[day.style], ctx.currentTime);
-  $("tap").classList.add("hit"); setTimeout(() => $("tap").classList.remove("hit"), 90);
-  // judge against the nearest target now, so a good tap lands right away
-  const near = targets.reduce((a, t, i) => (Math.abs(t - ms) < Math.abs(targets[a] - ms) ? i : a), 0);
-  const r = score([targets[near]], [ms])[0], g = r.grade;
-  if (g !== "miss") flash(g); else if (r.err !== null && r.err > 0) flash("late");   // bright for perfect, normal for good, "Late!" for a late miss
-  if (g !== "miss") {
-    const cls = day.targets[near].kind === "parry" ? "parried" : "crit";   // a parry blocks the enemy; a clap crits
-    arena.classList.add(cls); setTimeout(() => arena.classList.remove(cls), 240);
-  }
-}
-
-function finish() {
-  playing = false; cancelAnimationFrame(raf); lastBeat = null;
-  cells().forEach((c) => c.classList.remove("now"));
-  $("count").textContent = "";
-  $("track").querySelectorAll("li").forEach((li) => li.classList.remove("live"));
-  const res = score(targets, taps), n = (g) => res.filter((r) => r.grade === g).length;
-  // one dot per clap or parry, in order, coloured by how it went; hover or long-press for the measure and the timing
-  $("results").innerHTML = res.map((r, i) => `<li class="${r.grade} ${day.targets[i].kind}" title="Measure ${Math.floor(day.targets[i].at / 4) + 1} ${day.targets[i].kind}: ${
-    r.err === null ? "miss" : `${r.grade}, ${Math.abs(r.err)} ms ${r.err < 0 ? "early" : "late"}`}"></li>`).join("");
-  const hit = res.filter((r) => r.err !== null), avg = hit.length ? Math.round(hit.reduce((a, r) => a + r.err, 0) / hit.length) : null;
-  $("status").textContent = `${n("perfect")} perfect, ${n("good")} good, ${n("miss")} missed.` +
-    (avg === null ? "" : ` On average ${Math.abs(avg)} ms ${avg < 0 ? "early" : "late"}.`);
-  $("play").textContent = "Play again"; $("play").disabled = false; $("tap").disabled = true;
-  seal();
-  $("reveal").hidden = false;                            // the full beat is shown once you've played it
-}
-
-// Send the taps to the server, which scores them itself. Your first run of the day is sealed on the ledger.
-async function seal() {
-  try {
-    const r = await fetch("/api/run", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ day: day.day, taps }) });
-    const a = await r.json();
-    if (!r.ok) throw new Error(a.error);
-    $("sealed").textContent = a.sealed ? "Sealed on the ledger." : `Practice. Today's sealed run: ${a.today.perfect} perfect, ${a.today.good} good, ${a.today.miss} missed.`;
-  } catch (e) {
-    $("sealed").textContent = (e && e.message) || "This run couldn't be saved.";
-  }
-}
-
-$("play").addEventListener("click", () => ctx.resume().then(play));
-$("tap").addEventListener("pointerdown", (e) => { e.preventDefault(); tap(); });
-document.addEventListener("keydown", (e) => { if (e.code === "Space" && playing) { e.preventDefault(); if (!e.repeat) tap(); } });   // holding Space is one tap, not one every key repeat
-
-// after logging in or out, today's sealed run may be someone else's: ask again
-setupAccount(async () => {
-  try { const d = await (await fetch("/api/today")).json(); $("sealed").textContent = d.run ? `Today's sealed run: ${d.run.perfect} perfect, ${d.run.good} good, ${d.run.miss} missed.` : ""; } catch {}
-});
-
+setupAccount(() => {});
 load();

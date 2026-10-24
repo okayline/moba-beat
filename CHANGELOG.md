@@ -4,6 +4,12 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.10.8 — "Fight the ghost"
+**Sat Oct 24, 2026 · 1:12 AM HST**
+
+- The daily page is now a fight against the day's ghost, the same opponent for everyone, made from the day's hash. One button. Each half of the song goes: charge (a perfect tap on beat 4 fills half a pip), the ghost attacks (guard by holding beat 3 into 4), charge, your move (attack: tap 3 and 4; super: hold 1 to 3 and tap 4, with 3 pips). The song plays twice. Life bars, meters, a move list that lights up what you can do, and a log of the fight. Nothing is saved yet. Removed: the clap-and-parry game, its scoring and sealing from the page, the three-unit squads, the beat grid, the scrolling beat lines (`feed.js`) and their styles.
+- Attack is now a tap on beat 3 and a tap on beat 4. Removed: the old attack (hold beat 2 to 3, then tap 4), and retreat and advance from the fight.
+
 ## v0.10.7 — "Fuller drums"
 **Sat Oct 24, 2026 · 12:16 AM HST**
 
