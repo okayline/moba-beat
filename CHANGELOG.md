@@ -4,6 +4,12 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.10.10 — "Beat Fighter II"
+**Sat Oct 24, 2026 · 1:18 AM HST**
+
+- Shorter headlines: "Press Start!", "Charge!", "Ghost winds up..." and "Ghost charging a SUPER". Removed: "Measure 1 is your first charge.", "Tap beat 4", "The ghost winds up an attack!" and "The ghost winds up a SUPER!".
+- The game is called Beat Fighter II: The New Challengers (a parody of the old Street Fighter II title): the page titles, the name at the top of the daily and ledger pages, and the save code file. Removed: the name moba-beat from those. The repo, the Worker and the database keep the name moba-beat.
+
 ## v0.10.9 — "Lane and timing"
 **Sat Oct 24, 2026 · 1:16 AM HST**
 

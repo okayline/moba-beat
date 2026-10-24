@@ -18,6 +18,7 @@ a { color: var(--you); text-underline-offset: 3px; }
 
 .top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; }
 .mark { font-weight: 800; font-size: 1.25rem; letter-spacing: -0.02em; }
+.mark .sub { display: block; font-size: .8rem; font-weight: 600; letter-spacing: .02em; color: var(--strong); }
 .version { margin-left: 8px; font-size: 0.85rem; font-weight: 500; color: var(--muted); }
 .date { color: var(--muted); font-variant-numeric: tabular-nums; }
 

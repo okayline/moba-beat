@@ -48,9 +48,9 @@ function wire() {
   on("mkcode", async () => { const r = await api("codes", { action: "new" }); if (r.error) return say(r.error); newCode = r.code; await show(); onChange(); });
   on("copycode", async () => { try { await navigator.clipboard.writeText(newCode); say("Copied. Keep it somewhere safe."); } catch { say("Couldn't copy. Select the code and copy it by hand."); } });
   on("dlcode", async () => {
-    const text = `moba-beat save code\r\n\r\n  ${newCode}\r\n\r\nOn any browser: open ${location.origin}, open Account, and use this code under "Log in on this device".\r\nIt works in the other 88x31 games too. Keep it private: anyone with it can log in as you.\r\n`;
+    const text = `Beat Fighter II save code\r\n\r\n  ${newCode}\r\n\r\nOn any browser: open ${location.origin}, open Account, and use this code under "Log in on this device".\r\nIt works in the other 88x31 games too. Keep it private: anyone with it can log in as you.\r\n`;
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" })); a.download = "moba-beat-save-code.txt";
+    a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" })); a.download = "beat-fighter-save-code.txt";
     document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
   $("account").querySelectorAll("[data-rm]").forEach((b) => b.onclick = async () => {

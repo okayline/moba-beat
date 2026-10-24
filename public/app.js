@@ -93,17 +93,17 @@ function callFor(M) {
   const c = $("call"), k = reads.length, step = STEPS[k], A = step.measure, m = f.next?.move;
   lightGuide(M === A ? step.kind : null);
   if (M < A) { c.className = "call"; c.textContent = "Get ready"; }
-  else if (step.kind === "charge") { c.className = "call you"; c.textContent = "Charge! Tap beat 4"; }
+  else if (step.kind === "charge") { c.className = "call you"; c.textContent = "Charge!"; }
   else if (step.kind === "ghost") {
     c.className = "call ghost";
-    c.textContent = m === "super" ? "The ghost winds up a SUPER!" : "The ghost winds up an attack!";
+    c.textContent = m === "super" ? "Ghost charging a SUPER" : "Ghost winds up...";
   } else { c.className = "call you"; c.textContent = "Your move!"; }
 }
 
 function reset() {
   presses = []; reads = []; f = fight(day.hash, []);
   drawState(f.state); $("log").innerHTML = ""; $("result").textContent = ""; drawLane(-4);
-  $("call").className = "call"; $("call").textContent = "Press Start. Measure 1 is your first charge.";
+  $("call").className = "call"; $("call").textContent = "Press Start!";
 }
 
 function stop() {
