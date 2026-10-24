@@ -4,6 +4,14 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.10.11 — "Late!"
+**Sat Oct 24, 2026 · 1:27 AM HST**
+
+- Doing nothing (or something unclear) on your move costs half a pip, never below 0. Removed: the 1 life it cost.
+- A fight now always ends after its last measure, even when that measure was a wasted turn. Removed: the bug where such a fight was called a draw.
+- The lane shows what happened: a "Late!" under any press later than perfect (early shows nothing), and once a measure is done, a label over its last dot: Perfect! or Missed! for a charge; Crit!, Hit! or Missed! for your move; Blocked!, Half! or Hit! for the ghost's attack. The lane now shows 4 beats behind the line so the labels stay in view. Removed: half the room ahead of the line.
+- The move list sits right under the fight panel, with no "Moves" heading. Tap timing sits next to the kit and tempo. The ledger link is in the top right by Account, and the version number is in the bottom right corner. Removed: the "Moves" heading, the "See the ledger" link at the bottom, and the version number next to the name.
+
 ## v0.10.10 — "Beat Fighter II"
 **Sat Oct 24, 2026 · 1:18 AM HST**
 

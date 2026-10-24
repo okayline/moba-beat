@@ -55,15 +55,16 @@ test("charging: a perfect tap on beat 4 fills half a pip, from 1 at the start; o
 });
 
 test("a whole fight against a player who does nothing, worked out by hand", () => {
-  // (both start with 1 pip; a charge before each ghost and each player step does nothing here)
-  // ghost attack good: 2 (8), ghost meter 1 -> 2 | player wastes (7), ghost guards: meter 2 -> 1
-  // ghost attack missed: 0 | waste (6) | super with 1 meter -> attack perfect: 3 (3), meter 2
-  // waste (2), ghost guards: meter 2 -> 1 | attack perfect: 3, life can't go below 0: KO, the ghost wins
+  // (both start with 1 pip; charges do nothing here; a wasted turn costs the player half a pip, never below 0, no life)
+  // ghost attack good: 2 (8), ghost meter 1 -> 2 | player wastes: pip 1 -> 0.5 | ghost attack missed: 0
+  // player wastes: 0.5 -> 0 | super with 2 meter -> attack perfect: 3 (5), meter 3 | wastes: stays 0
+  // attack perfect: 3 (2) | wastes | 16 steps done: 2 against 10, the ghost wins
   const f = fight(HASH, Array(16).fill(none));
-  assert.deepEqual([f.state.hp, f.state.pos, f.over, f.winner], [[0, 10], [2, 4], true, 1]);
+  assert.deepEqual([f.state.hp, f.state.meter, f.over, f.winner], [[2, 10], [0, 3], true, 1]);
   assert.deepEqual(f.log.map((e) => [e.kind, e.damage ?? 0]),
     [["charge", 0], ["ghost", 2], ["charge", 0], ["player", 0], ["charge", 0], ["ghost", 0], ["charge", 0], ["player", 0],
-     ["charge", 0], ["ghost", 3], ["charge", 0], ["player", 0], ["charge", 0], ["ghost", 3]]);
+     ["charge", 0], ["ghost", 3], ["charge", 0], ["player", 0], ["charge", 0], ["ghost", 3], ["charge", 0], ["player", 0]]);
+  assert.deepEqual(fight(HASH, Array(4).fill(none)).log[3], { kind: "player", actor: 0, move: "none", wasted: true, lost: 0.5, damage: 0, charged: 0 });
   assert.equal(fight(HASH, Array(4).fill(none)).next.move, "attack");
   assert.equal(fight(HASH, Array(8).fill(none)).over, false);
 });

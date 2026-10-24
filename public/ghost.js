@@ -9,7 +9,7 @@
 //
 // The moves are attack, super, guard and charge. There is no moving: both stay in reach, so every attack connects.
 // On the player's move a lone tap on beat 4 is a charge, not a wasted turn; anything else that isn't an attack or a
-// super (nothing, or something unclear) wastes the turn and costs 1 life. On the ghost's turn the only answer is a guard.
+// super (nothing, or something unclear) wastes the turn and costs WASTED_PIPS of a pip, no life. On the ghost's turn the only answer is a guard.
 //
 // The hash picks, a 4-bit number (0 to 15) each, from bytes 29, 30, 31 and 11, 14, 15 (bytes nothing else uses):
 //
@@ -23,7 +23,7 @@ import { METER, TURNS, resolve, outcome, start } from "./duel.js";
 
 export const LOOPS = 2;
 // one half of a run (0-based measures): charge, ghost, charge, player; the second half is the same 4 measures later
-export const CHARGE = 0.5, START_METER = 1;   // a perfect charge tap fills half a pip; both sides start with 1
+export const CHARGE = 0.5, START_METER = 1, WASTED_PIPS = 0.5;   // a perfect charge tap fills half a pip; both sides start with 1
 const HALF = [[0, "charge"], [1, "ghost"], [2, "charge"], [3, "player"]];
 export const STEPS = Array.from({ length: LOOPS * 2 }, (_, h) => HALF.map(([m, kind]) => ({ measure: h * 4 + m, kind }))).flat();
 export const stepAt = (measure) => STEPS.findIndex((x) => x.measure === measure);   // -1 for a rest measure
@@ -77,6 +77,12 @@ export function fight(hash, playerReads) {
     if (kind === "player" && read.move === "advance") {   // a lone tap on beat 4: a charge, not a wasted turn
       y++; log.push({ kind, actor: 0, move: "charge", grade: beat4(read), charged: charge(read), damage: 0 }); continue;
     }
+    if (kind === "player" && !["attack", "super"].includes(read.move)) {   // a wasted turn: half a pip, no life
+      y++;
+      const before = state.meter[0];
+      state = { ...state, meter: [Math.max(0, before - WASTED_PIPS), state.meter[1]] };
+      log.push({ kind, actor: 0, move: read.move, wasted: true, lost: before - state.meter[0], damage: 0, charged: 0 }); continue;
+    }
     // no moving: a retreat or an advance as an answer to the ghost does nothing (its tap on 4 may still charge), and a
     // retreat as the player's own move is a wasted turn
     const move = ["retreat", "advance"].includes(read.move) ? { ...read, move: kind === "ghost" ? "none" : "unclear" } : read;
@@ -87,5 +93,6 @@ export function fight(hash, playerReads) {
     if (o) return { state, log, over: true, winner: o.winner, next: null };
   }
   const k = log.length;
+  if (k === STEPS.length) return { state, log, over: true, winner: outcome(state, TURNS).winner, next: null };   // the last step may skip the check above
   return { state, log, over: false, winner: null, next: k < STEPS.length && g < p.moves.length ? ghostMove(p, g, state) : null };
 }

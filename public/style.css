@@ -59,7 +59,8 @@ a { color: var(--you); text-underline-offset: 3px; }
 .bpm { margin: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
 .bpm span { color: var(--ink); font-weight: 700; }
 .bpm .style { color: var(--strong); margin-right: 4px; }
-.moves h2, .log-sec h2 { font-size: 1rem; font-weight: 700; color: var(--muted); margin: 28px 0 10px; }
+.moves { margin-top: 14px; }
+.log-sec h2 { font-size: 1rem; font-weight: 700; color: var(--muted); margin: 28px 0 10px; }
 
 /* the move list: one card per move, its presses drawn across beats 1 to 4; lit for what you can do this measure */
 .guide { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
@@ -80,7 +81,7 @@ a { color: var(--you); text-underline-offset: 3px; }
 .k-tap { width: 12px; height: 12px; border-radius: 50%; background: var(--strong); }
 .k-hold { width: 22px; height: 9px; border-radius: 5px; background: var(--you); }
 .k-four { width: 14px; height: 14px; border-radius: 3px; background: rgba(255, 176, 32, .3); }
-.timing { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; color: var(--muted); font-size: .9rem; }
+.timing { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; min-width: 220px; color: var(--muted); font-size: .9rem; }
 .timing input { flex: 1; min-width: 140px; max-width: 280px; accent-color: var(--you); }
 .timing span { font-variant-numeric: tabular-nums; min-width: 6.5em; color: var(--ink); }
 .log { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 4px; }
@@ -88,7 +89,9 @@ a { color: var(--you); text-underline-offset: 3px; }
 .log li.ghost { color: var(--ghost); }
 @media (prefers-reduced-motion: reduce) { .life i, .guide.live .mv { transition: none; } }
 
-.foot { margin-top: 36px; font-size: 0.9rem; color: var(--muted); max-width: 62ch; line-height: 1.5; }
+.foot { margin-top: 36px; font-size: 0.9rem; color: var(--muted); line-height: 1.5; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.foot p { margin: 0; }
+.foot .version { margin-left: auto; }
 .foot .note { margin-top: 6px; }
 
 /* the ledger page */

@@ -8,8 +8,8 @@
 </head>
 <body>
   <header class="top">
-    <span class="mark">Beat Fighter II:<span class="version" id="version"></span><span class="sub">The New Challengers</span></span>
-    <span class="right"><span class="date" id="date"></span><button class="link" id="acct" type="button">Account</button></span>
+    <span class="mark">Beat Fighter II:<span class="sub">The New Challengers</span></span>
+    <span class="right"><span class="date" id="date"></span><a href="ledger.html">Ledger</a><button class="link" id="acct" type="button">Account</button></span>
   </header>
   <section class="account" id="account" hidden></section>
 
@@ -30,22 +30,20 @@
       <canvas class="lane" id="lane" aria-hidden="true"></canvas>
       <button class="pad" id="pad" type="button">Press / hold</button>
     </section>
-    <div class="controls">
-      <button class="play" id="play" type="button" disabled>Start fight</button>
-      <p class="bpm"><span id="style" class="style"></span> <span id="bpm">–</span> BPM</p>
-    </div>
-    <p class="status" id="status" role="status"></p>
-    <div class="timing">
-      <label for="offset">Tap timing</label>
-      <input type="range" id="offset" min="-150" max="150" step="5" value="0">
-      <span id="offsetVal">0 ms</span>
-    </div>
-
-    <section class="moves" aria-labelledby="moves-title">
-      <h2 id="moves-title">Moves</h2>
+    <section class="moves" aria-label="Moves">
       <div class="guide" id="guide"></div>
       <p class="key"><span><i class="k-tap"></i>tap</span><span><i class="k-hold"></i>press and hold</span><span><i class="k-four"></i>beat 4</span></p>
     </section>
+    <div class="controls">
+      <button class="play" id="play" type="button" disabled>Start fight</button>
+      <p class="bpm"><span id="style" class="style"></span> <span id="bpm">–</span> BPM</p>
+      <div class="timing">
+        <label for="offset">Tap timing</label>
+        <input type="range" id="offset" min="-150" max="150" step="5" value="0">
+        <span id="offsetVal">0 ms</span>
+      </div>
+    </div>
+    <p class="status" id="status" role="status"></p>
 
     <section class="log-sec" aria-labelledby="log-title">
       <h2 id="log-title">What happened</h2>
@@ -54,7 +52,7 @@
   </main>
 
   <footer class="foot">
-    <p><a href="ledger.html">See the ledger</a></p>
+    <span class="version" id="version"></span>
   </footer>
 
   <script type="module" src="app.js"></script>

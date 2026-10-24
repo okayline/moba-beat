@@ -13,6 +13,7 @@ import { read } from "./moves.js";
 import { HP, METER } from "./duel.js";
 import { fight, STEPS, LOOPS } from "./ghost.js";
 import { setupAccount } from "./account.js";
+import { PERFECT } from "./score.js";
 
 const $ = (id) => document.getElementById(id);
 $("version").textContent = VERSION;
@@ -37,28 +38,38 @@ const showOffset = () => { $("offset").value = offset; $("offsetVal").textConten
 showOffset();
 $("offset").addEventListener("input", () => { offset = Number($("offset").value); showOffset(); try { localStorage.setItem("mb-offset", String(offset)); } catch {} });
 
-// The lane: 2 measures ahead, half a measure behind the line. Charge measures are gold with a dot on beat 4, the
+// The lane: 6 beats ahead of the line and 4 behind, so a finished measure's label stays in view a moment. Charge measures are gold with a dot on beat 4, the
 // ghost's are pink with a ring on beat 3 (where a guard starts), yours are blue with dots on beats 3 and 4 (attack).
 const KIND = { charge: ["#ffb020", [3], false], ghost: ["#ff6b8a", [2], true], player: ["#5b82ff", [2, 3], false] };
 function drawLane(b) {
   const c = $("lane"), r = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
   if (c.width !== Math.round(w * r)) { c.width = Math.round(w * r); c.height = Math.round(h * r); }
   const g = c.getContext("2d"); g.setTransform(r, 0, 0, r, 0, 0); g.clearRect(0, 0, w, h);
-  const lineX = w * 0.2, perBeat = (w - lineX) / 8, x = (beat) => lineX + (beat - b) * perBeat;
-  for (const step of STEPS) {
+  const lineX = w * 0.4, perBeat = w * 0.1, x = (beat) => lineX + (beat - b) * perBeat;
+  STEPS.forEach((step, i) => {
     const [color, dots, ring] = KIND[step.kind], m0 = step.measure * 4;
-    if (x(m0 + 4) < 0 || x(m0) > w) continue;
+    if (x(m0 + 4) < 0 || x(m0) > w) return;
     g.globalAlpha = 0.16; g.fillStyle = color; g.fillRect(x(m0), 6, perBeat * 4, h - 12); g.globalAlpha = 1;
     for (const d of dots) {
       g.beginPath(); g.arc(x(m0 + d), h / 2, 8, 0, Math.PI * 2);
       if (ring) { g.strokeStyle = color; g.lineWidth = 3; g.stroke(); } else { g.fillStyle = color; g.fill(); }
     }
-  }
+    // once the measure has been read: what happened, over its last dot
+    const e = f && f.log[i];
+    if (e) {
+      g.fillStyle = "#e7ebf5"; g.font = "700 13px " + getComputedStyle(document.body).fontFamily; g.textAlign = "center";
+      g.fillText(label(e), x(m0 + dots[dots.length - 1]), 18);
+    }
+  });
   g.strokeStyle = "#3a4361"; g.lineWidth = 1;
-  for (let k = Math.floor(b - 2); k < b + 9; k++) { if (k < 0) continue; const xx = x(k); g.beginPath(); g.moveTo(xx, k % 4 === 0 ? 4 : h - 16); g.lineTo(xx, h - 4); g.stroke(); }
+  for (let k = Math.floor(b - 5); k < b + 7; k++) { if (k < 0) continue; const xx = x(k); g.beginPath(); g.moveTo(xx, k % 4 === 0 ? 4 : h - 16); g.lineTo(xx, h - 4); g.stroke(); }
+  // "Late!" where a late press landed, scrolling away with it
+  g.fillStyle = "#ff6b8a"; g.font = "800 12px " + getComputedStyle(document.body).fontFamily; g.textAlign = "center";
+  for (const at of lates) if (x(at) > -30) g.fillText("Late!", x(at), h - 10);
   g.strokeStyle = "#e7ebf5"; g.lineWidth = 2; g.beginPath(); g.moveTo(lineX, 2); g.lineTo(lineX, h - 2); g.stroke();
 }
 
+let lates = [];   // beats where a late press landed, for the lane
 let day, audio = null, spb = 0, t0 = 0, raf = 0, token = 0, presses = [], reads = [], down = null, f = null, cueAt = -1, shown = -1;
 
 function drawState(state) {
@@ -78,11 +89,19 @@ function lightGuide(kind) {
   for (const c of $("guide").children) c.classList.toggle("can", !!can && can.includes(c.dataset.move));
 }
 
+// The lane's label for a step's log entry.
+function label(e) {
+  if (e.kind === "charge" || e.move === "charge") return e.charged ? "Perfect!" : "Missed!";
+  if (e.kind === "ghost") return e.guard === "perfect" ? "Blocked!" : e.guard === "good" ? "Half!" : e.damage > 0 ? "Hit!" : "Missed!";
+  if (e.wasted || !e.damage) return "Missed!";
+  return e.crit ? "Crit!" : "Hit!";
+}
+
 function line(e) {
   if (e.kind === "charge" || e.move === "charge") return e.charged ? "You charged: perfect, +½ pip." : "You charged: no pip.";
   const who = e.actor === 0 ? "You" : "Ghost";
   let s = `${who}: ${MOVE[e.move] ?? e.move}`;
-  if (e.wasted) s += ", a wasted turn: 1 life lost";
+  if (e.wasted) s += `, a wasted turn${e.lost ? ": −½ pip" : ""}`;
   else if (e.move === "attack" || e.move === "super") s += `${e.crit ? " (crit)" : ""}, ${e.damage} damage`;
   if (e.reaction === "guard") s += `. ${e.actor === 0 ? "The ghost" : "You"} guarded (${e.guard})`;
   if (e.charged) s += ". You charged: +½ pip";
@@ -101,7 +120,7 @@ function callFor(M) {
 }
 
 function reset() {
-  presses = []; reads = []; f = fight(day.hash, []);
+  presses = []; reads = []; lates = []; f = fight(day.hash, []);
   drawState(f.state); $("log").innerHTML = ""; $("result").textContent = ""; drawLane(-4);
   $("call").className = "call"; $("call").textContent = "Press Start!";
 }
@@ -169,6 +188,9 @@ function finish() {
 function press() {
   if (!audio || down) return;
   down = { down: pressAt(), up: null }; presses.push(down);
+  // later than perfect against the nearest beat: a little "Late!" (early shows nothing)
+  const late = (down.down - Math.round(down.down)) * spb * 1000;
+  if (down.down >= 0 && late > PERFECT) lates.push(down.down);
   $("pad").classList.add("down");
   audio.sample(TAP[day.style], audio.ctx.currentTime, 0.9);
 }
