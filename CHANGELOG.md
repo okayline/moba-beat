@@ -4,6 +4,16 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.11.0 — "Carry"
+**Mon Oct 26, 2026 · 12:27 AM HST**
+
+- Under the BPM: the copy you carry, which is your account's pinned copy from any 88x31 game or your newest copy. It shows in gold if the Moon blessed it, and only until today's run is sealed. Removed: nothing on the page said what you hold elsewhere.
+- Account has a Carry panel: every copy your account holds, newest first, each with Pin. Removed: no way to choose the copy you carry.
+- Today's sealed run with no misses marks the carried copy "kept_beat" in the shared registry. Removed: runs leaving no trace on the copies players hold.
+- Needs dungeon-items with the pinned copy (its migration 007) live first.
+
+---
+
 ## v0.10.13 — "Bold"
 **Sat Oct 24, 2026 · 1:40 AM HST**
 

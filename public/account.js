@@ -32,12 +32,22 @@ async function show(msg = "") {
     <div class="p"><h3>Passkeys (${a.passkeys.length})</h3>
       ${a.passkeys.map((k) => `<div class="r"><span class="m">${esc(k.label || "passkey")}${k.created_at ? ", made " + day(k.created_at) : ""}</span><button data-rm="passkey" data-id="${k.id}" type="button">Forget</button></div>`).join("") || '<p class="m">None yet.</p>'}
       ${pkOk() ? '<button id="mkpk" type="button">Add a passkey</button>' : '<p class="m">This browser can\'t do passkeys. Use a save code instead.</p>'}</div>
+    ${a.player ? carryPanel(await api("copies")) : ""}
     <div class="p"><h3>Log in on this device</h3>
       <div class="r"><input id="codein" placeholder="Save code" autocomplete="off" spellcheck="false" aria-label="Save code"><button id="usecode" type="button">Use code</button></div>
       ${pkOk() ? '<button id="pklogin" type="button">Log in with a passkey</button>' : ""}</div>
     ${has ? '<button class="link" id="logout" type="button">Log out of this browser</button>' : ""}
     <p class="m" id="amsg" role="status">${esc(msg)}</p>`;
   wire();
+}
+
+// (v0.11) Carry: every copy your account holds in any 88x31 game, newest first. The pinned one (else the newest) is the one
+// you carry; Pin carries another from your next run.
+function carryPanel(r) {
+  const list = (r && r.copies) || [], on = list.find((x) => x.pinned) || list[0];
+  return `<div class="p"><h3>Carry</h3>
+      <p class="m">${on ? `Carrying ${esc(on.name)} #${on.copy}. A run with no misses marks it.` : "You don't hold any copies yet."}</p>
+      ${list.slice(0, 12).map((x) => `<div class="r"><span class="m">${esc(x.name)} #${x.copy} · ${esc(x.game)}</span>${x === on ? '<span class="m">carrying</span>' : `<button data-pin="${x.itemId}-${x.copy}" type="button">Pin</button>`}</div>`).join("")}</div>`;
 }
 
 function wire() {
@@ -55,6 +65,10 @@ function wire() {
   });
   $("account").querySelectorAll("[data-rm]").forEach((b) => b.onclick = async () => {
     const r = await api(b.dataset.rm, { action: "remove", id: Number(b.dataset.id) }); if (r.error) return say(r.error); await show("Forgotten.");
+  });
+  $("account").querySelectorAll("[data-pin]").forEach((b) => b.onclick = async () => {
+    const [itemId, copy] = b.dataset.pin.split("-").map(Number);
+    const r = await api("pin", { itemId, copy }); if (r.error) return say(r.error); await show("Pinned. Every game carries it now.");
   });
   on("usecode", async () => { const r = await api("load", { code: $("codein").value.trim() }); if (r.error) return say(r.error); await changed("Logged in."); });
   on("logout", async () => { const r = await api("logout", {}); if (r.error) return say(r.error); await changed("Logged out."); });

@@ -251,6 +251,8 @@ async function load() {
   $("date").textContent = day.day;
   $("bpm").textContent = day.bpm;
   $("style").textContent = day.style;
+  // (v0.11) the copy you carry in (your account's pinned copy), gold if the Moon blessed it; a run with no misses marks it
+  if (day.carry) { $("carry").hidden = false; $("carry").textContent = "Carrying " + day.carry.name + " #" + day.carry.copy; $("carry").style.color = day.carry.blessed ? "#e3b341" : ""; }
   reset();
   $("play").disabled = false; $("cal").disabled = false;
 }

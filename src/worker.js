@@ -101,7 +101,8 @@ async function today(ctx) {
   const t = await sealToday(ctx.env);
   if (t.sealed) ctx.waitUntil?.(checkpoint(ctx.env));
   const me = await player(ctx), run = me ? await runOf(ctx.env, me.id, t.day) : null;
-  return { day: t.day, registry: t.registry, hash: t.hash, ...beat(t.hash), run };
+  const carry = me && !run ? carryView(await carried(ctx.env, me.id)) : null;   // (v0.11) the copy you carry: your account's pinned copy
+  return { day: t.day, registry: t.registry, hash: t.hash, ...beat(t.hash), run, carry };
 }
 
 async function saveRun(ctx) {
@@ -129,6 +130,7 @@ async function saveRun(ctx) {
   });
   if (sealed.duplicate) return { sealed: false, run, today: await runOf(env, me.id, t.day) };   // another tab sealed first
   ctx.waitUntil?.(checkpoint(env));
+  if (run.miss === 0) ctx.waitUntil?.(markCarry(env, me.id, "kept_beat", "run:" + t.day + ":" + me.id));   // (v0.11) a sealed run with no misses marks the carried copy
   return { sealed: true, run, hash: sealed.hash };
 }
 
@@ -377,6 +379,7 @@ const ROUTES = {
   "GET /api/today": today, "POST /api/run": saveRun, "GET /api/ledger": ledger,
   "POST /api/duel/new": duelNew, "POST /api/duel/join": duelJoin, "GET /api/duel": duelGet, "POST /api/duel/play": duelPlay, "GET /api/duels": duelList,
   "GET /api/account": account, "POST /api/codes": codes, "POST /api/load": loadCode, "POST /api/passkey": passkey, "POST /api/logout": logout,
+  "GET /api/copies": copies, "POST /api/pin": pinCopy,
 };
 
 export default {
@@ -395,3 +398,40 @@ export default {
     }
   },
 };
+
+// ---------- the carried copy (copied from TILT.EXE v0.19) ----------
+// Your account's pinned copy from any game (dungeon-items registry.js pinned: the pin, else your newest copy), read when
+// a run starts so the page can show it, and read again when a memorable moment marks it (markCarried: a deed mark made
+// in this game, keyed so a retry makes no second mark). A Moon-blessed copy (a 4Dungeon mark) shows in gold. A registry
+// that's away, or no copy, carries nothing and never stops a run.
+async function carried(env, playerId) {
+  try {
+    const c = env.REGISTRY && env.REGISTRY.pinned ? await env.REGISTRY.pinned(GAME, playerId) : null;
+    return c && c.itemId ? { ...c, blessed: c.marks.some((m) => m.kind === "moon" && m.value === "blessed") ? 1 : 0 } : null;
+  } catch (e) { console.error(e); return null; }
+}
+const carryView = (c) => c ? { name: c.item.name, copy: c.copy, blessed: c.blessed } : null;
+async function markCarry(env, playerId, value, key) {
+  const c = await carried(env, playerId);
+  if (!c) return;
+  try {
+    const r = await env.REGISTRY.markCarried({ itemId: c.itemId, copy: c.copy, by: { game: GAME, playerId }, kind: "deed", value, key });
+    if (r && r.error) console.error("The registry refused the mark: " + r.error);
+  } catch (e) { console.error(e); }
+}
+
+// The picker (account panel): every copy your account holds in any game, newest first, and pinning one of them to carry.
+//   GET  /api/copies              { copies: [{ itemId, copy, name, game, pinned }] } (up to 50)
+//   POST /api/pin {itemId, copy}  pin it: every game carries it from your next run
+async function copies(ctx) {
+  const { env } = ctx, player = await must(ctx);
+  if (!player || !env.REGISTRY || !env.REGISTRY.heldAcross) return { copies: [] };
+  const list = await env.REGISTRY.heldAcross(GAME, player.id, 50);
+  return { copies: list.map((c) => ({ itemId: c.itemId, copy: c.copy, name: c.item.name, game: c.game, pinned: c.pinned })) };
+}
+async function pinCopy(ctx) {
+  const { env } = ctx, player = await must(ctx), b = await body(ctx.req);
+  const r = await env.REGISTRY.pin({ game: GAME, playerId: player.id, itemId: Number(b.itemId), copy: Number(b.copy) });
+  if (r && r.error) throw new Oops(r.error);
+  return { ok: true };
+}

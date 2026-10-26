@@ -298,3 +298,24 @@ test("a body that isn't an object is a 400; a registry that's away is a 503 and 
     assert.equal(env.DB.raw.prepare("SELECT COUNT(*) AS n FROM ledger").get().n, 0);
   } finally { globalThis.fetch = real; }
 });
+
+test("the carried copy: today shows it; a sealed run with no misses marks it, one with misses doesn't; the picker pins", async () => {
+  const real = globalThis.fetch;
+  try {
+    const { env, call } = setup(), marked = [], pins = [];
+    Object.assign(env.REGISTRY, {
+      pinned: async () => ({ itemId: 4, copy: 2, item: { name: "a lamp" }, marks: [{ kind: "moon", value: "blessed" }] }),
+      markCarried: async (m) => { marked.push(m); return { ok: true, n: 1, created: true }; },
+      heldAcross: async () => [{ itemId: 4, copy: 2, game: "4dungeon", pinned: false, item: { name: "a lamp" } }],
+      pin: async (p) => { pins.push(p); return { ok: true }; },
+    });
+    const t = await call("/api/today"), day = t.day, at = t.targets.map((x) => x.at * 60000 / t.bpm);
+    const a = await call("/api/run", { body: { day, taps: at } });
+    const me = a.cookie.split(";")[0];
+    assert.deepEqual((await call("/api/run", { body: { day, taps: [] } })).sealed, true);   // another player, all misses
+    assert.deepEqual(marked, [{ itemId: 4, copy: 2, by: { game: "moba-beat", playerId: 1 }, kind: "deed", value: "kept_beat", key: "run:" + day + ":1" }]);
+    assert.equal((await call("/api/today", { cookie: me })).carry, null, "nothing shown once today's run is sealed");
+    assert.equal((await call("/api/pin", { body: { itemId: 4, copy: 2 }, cookie: me })).status, 200);
+    assert.deepEqual(pins, [{ game: "moba-beat", playerId: 1, itemId: 4, copy: 2 }]);
+  } finally { globalThis.fetch = real; }
+});
