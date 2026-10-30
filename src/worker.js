@@ -379,14 +379,18 @@ const ROUTES = {
   "GET /api/today": today, "POST /api/run": saveRun, "GET /api/ledger": ledger,
   "POST /api/duel/new": duelNew, "POST /api/duel/join": duelJoin, "GET /api/duel": duelGet, "POST /api/duel/play": duelPlay, "GET /api/duels": duelList,
   "GET /api/account": account, "POST /api/codes": codes, "POST /api/load": loadCode, "POST /api/passkey": passkey, "POST /api/logout": logout,
-  "GET /api/copies": copies, "POST /api/pin": pinCopy,
+  "POST /api/pin": pinCopy,
 };
 
 export default {
   async fetch(req, env, ectx) {
     const url = new URL(req.url), route = ROUTES[req.method + " " + url.pathname];
-    if (!route) return json({ error: "Not found." }, 404);
     const ctx = { req, env, waitUntil: (p) => ectx?.waitUntil?.(p), setCookie: null };
+    if (req.method === "GET" && url.pathname === "/api/carry") {   // a page, not JSON
+      try { return await carryPage(ctx, url); }
+      catch (e) { if (e instanceof Oops) return json({ error: e.message }, e.status); console.error(e); return json({ error: "Something broke. Try again in a moment." }, 500); }
+    }
+    if (!route) return json({ error: "Not found." }, 404);
     try {
       const res = json(await route(ctx));
       if (ctx.setCookie) res.headers.append("set-cookie", ctx.setCookie);
@@ -420,14 +424,19 @@ async function markCarry(env, playerId, value, key) {
   } catch (e) { console.error(e); }
 }
 
-// The picker (account panel): every copy your account holds in any game, newest first, and pinning one of them to carry.
-//   GET  /api/copies              { copies: [{ itemId, copy, name, game, pinned }] } (up to 50)
+// The carry window (the footer's ≡): the registry's own page of every copy your account holds in any game, with the shared
+// save codes and passkeys and logging in and out (the routes above), in this game's frame (dungeon-items carry-window.js).
+// Its buttons pin through POST /api/pin. Same as scoundrel.exe's.
+//   GET  /api/carry[?embed=1]     the window, as a page
 //   POST /api/pin {itemId, copy}  pin it: every game carries it from your next run
-async function copies(ctx) {
-  const { env } = ctx, player = await must(ctx);
-  if (!player || !env.REGISTRY || !env.REGISTRY.heldAcross) return { copies: [] };
-  const list = await env.REGISTRY.heldAcross(GAME, player.id, 50);
-  return { copies: list.map((c) => ({ itemId: c.itemId, copy: c.copy, name: c.item.name, game: c.game, pinned: c.pinned })) };
+async function carryPage(ctx, url) {
+  const { env } = ctx, me = await player(ctx);
+  if (!env.REGISTRY || !env.REGISTRY.carryWindow) throw new Oops("The registry is unavailable right now. Try again in a moment.", 503);
+  const id = me ? await accountFor(env, me) : null;
+  const ways = { player: !!me, ...(id ? ok(await ACC(env).info(id)) : { codes: [], passkeys: [] }) };
+  const html = await env.REGISTRY.carryWindow({ game: GAME, playerId: me ? me.id : 0, pinUrl: "/api/pin", back: "/", ways, embed: url.searchParams.get("embed") === "1",
+    frame: { title: "Beat Fighter II · Carry", paper: "#151a2e", ink: "#e7ebf5", edge: "#3a4361", accent: "#ffb020", font: '"Avenir Next", "Segoe UI", system-ui, sans-serif' } });
+  return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
 }
 async function pinCopy(ctx) {
   const { env } = ctx, player = await must(ctx), b = await body(ctx.req);

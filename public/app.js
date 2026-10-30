@@ -6,17 +6,14 @@
 // The lane (a canvas) scrolls the coming beats right to left past a line: each measure tinted by what happens in it,
 // with dots where to press. The tap timing slider moves every press later or earlier, for devices whose sound delay the
 // browser reports wrong; it is kept in this browser.
-import { VERSION } from "./version.js";
 import { TAP } from "./beat.js";
 import { createAudio } from "./audio.js";
 import { read } from "./moves.js";
 import { HP, METER } from "./duel.js";
 import { fight, STEPS, LOOPS } from "./ghost.js";
-import { setupAccount } from "./account.js";
 import { PERFECT } from "./score.js";
 
 const $ = (id) => document.getElementById(id);
-$("version").textContent = VERSION;
 
 const MOVE = { attack: "Attack", super: "SUPER", guard: "Guard", none: "nothing", unclear: "nothing clear" };
 // The moves, beat by beat (beats 0 to 3 across the measure): holds are [from, to], taps are a beat.
@@ -265,5 +262,4 @@ pad.addEventListener("pointerup", release); pad.addEventListener("pointercancel"
 document.addEventListener("keydown", (e) => { if (e.code !== "Space" || e.repeat) return; if (e.target.closest?.("button:not(#pad), input")) return; e.preventDefault(); press(); });
 document.addEventListener("keyup", (e) => { if (e.code === "Space") { e.preventDefault(); release(); } });
 
-setupAccount(() => {});
 load();

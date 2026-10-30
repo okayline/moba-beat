@@ -9,9 +9,8 @@
 <body>
   <header class="top">
     <span class="mark">Beat Fighter II:<span class="sub">The New Challengers</span></span>
-    <span class="right"><span class="date" id="date"></span><a href="ledger.html">Ledger</a><button class="link" id="acct" type="button">Account</button></span>
+    <span class="right"><span class="date" id="date"></span><a href="ledger.html">Ledger</a></span>
   </header>
-  <section class="account" id="account" hidden></section>
 
   <main>
     <section class="fight" aria-label="The fight">
@@ -51,9 +50,8 @@
     </section>
   </main>
 
-  <footer class="foot">
-    <span class="version" id="version"></span>
-  </footer>
+  <!-- the footer every game shows (dungeon-items src/footer.js): "© ~*~88x31~*~ cLuB, year · ≡ version"; ≡ pops up the save codes / passkeys / carry window (/api/carry) -->
+  <script src="https://dungeon-items.ddddungeon.workers.dev/footer.js" data-version="v0.12.0" data-align="center"></script>
 
   <script type="module" src="app.js"></script>
 </body>

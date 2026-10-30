@@ -4,6 +4,12 @@ Newest first. Times are Hawaii time (HST).
 
 ---
 
+## v0.12.0
+**Thu Oct 29, 2026**
+
+- **The shared footer** from dungeon-items ("© ~*~88x31~*~ cLuB, year · ≡ v0.12.0"), the same line every 88x31 game shows. Its ≡ opens the carry window: save codes, passkeys, logging in and out, and your copies with Pin. Removed: the version line at the bottom.
+- **No account page.** Removed: the Account button and the account panel with its Carry list. Everything about logging in is in the ≡ window now.
+
 ## v0.11.0 — "Carry"
 **Mon Oct 26, 2026 · 12:27 AM HST**
 

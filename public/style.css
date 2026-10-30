@@ -19,7 +19,6 @@ a { color: var(--you); text-underline-offset: 3px; }
 .top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px 14px; margin-bottom: 20px; }
 .mark { font-weight: 800; font-size: 1.6rem; letter-spacing: -0.02em; white-space: nowrap; }
 .mark .sub { display: block; font-size: .8rem; font-weight: 600; letter-spacing: .02em; color: var(--strong); }
-.version { margin-left: 8px; font-size: 0.85rem; font-weight: 500; color: var(--muted); }
 .date { color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* the fight: life bars and meters, the call, the beat lamps, one big button */
@@ -90,10 +89,6 @@ a { color: var(--you); text-underline-offset: 3px; }
 .log li.ghost { color: var(--ghost); }
 @media (prefers-reduced-motion: reduce) { .life i, .guide.live .mv { transition: none; } }
 
-.foot { margin-top: 36px; font-size: 0.9rem; color: var(--muted); line-height: 1.5; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.foot p { margin: 0; }
-.foot .version { margin-left: auto; }
-.foot .note { margin-top: 6px; }
 
 /* the ledger page */
 .top a.mark { color: var(--ink); text-decoration: none; }
@@ -116,15 +111,3 @@ a { color: var(--you); text-underline-offset: 3px; }
 /* the account panel */
 .top .right { display: flex; gap: 14px; align-items: baseline; }
 .link { font: inherit; color: var(--you); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-.account { background: var(--lane); border-radius: 16px; padding: 16px; margin-bottom: 20px; display: grid; gap: 12px; }
-.account[hidden] { display: none; }
-.account .acct-head { display: flex; justify-content: space-between; align-items: baseline; }
-.account h2 { margin: 0; font-size: 1.3rem; }
-.account h3 { margin: 0 0 8px; font-size: 1rem; }
-.account .m { color: var(--muted); margin: 0; line-height: 1.5; }
-.account .p { background: var(--floor); border-radius: 12px; padding: 12px; display: grid; gap: 8px; justify-items: start; }
-.account .p.gold { box-shadow: inset 0 0 0 2px var(--strong); }
-.account .code { font: 700 1.1rem ui-monospace, monospace; letter-spacing: 0.04em; word-break: break-all; }
-.account .r { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; width: 100%; justify-content: space-between; }
-.account button:not(.link) { font: inherit; color: var(--ink); background: var(--lane); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
-.account input { font: inherit; color: var(--ink); background: var(--lane); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; flex: 1; min-width: 0; }
