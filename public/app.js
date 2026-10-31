@@ -262,4 +262,4 @@ pad.addEventListener("pointerup", release); pad.addEventListener("pointercancel"
 document.addEventListener("keydown", (e) => { if (e.code !== "Space" || e.repeat) return; if (e.target.closest?.("button:not(#pad), input")) return; e.preventDefault(); press(); });
 document.addEventListener("keyup", (e) => { if (e.code === "Space") { e.preventDefault(); release(); } });
 
-load();
+load().finally(() => { document.getElementById("ddfoot").hidden = false; });   // (v0.12.2) the footer shows only once the game has loaded today's song, so it is never alone mid-screen
