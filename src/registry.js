@@ -1,9 +1,9 @@
 // The shared registry's chain head as of 00:00 UTC on a day: the hash of the last registry entry made before midnight.
-// Read from the registry's public ledger (88x31.app passes it through from dungeon-items), newest first, 100 at a time.
+// Read from the registry's public ledger (club.88x31.app passes it through from dungeon-items), newest first, 100 at a time.
 // A ledger that's away or slow (5 s a page) throws, so the day isn't sealed and the next request tries again.
 import { GENESIS } from "./ledger.js";
 
-const LEDGER = "https://88x31.app/api/registry/ledger";
+const LEDGER = "https://club.88x31.app/api/registry/ledger";
 
 export async function registryHeadAt(day) {
   const cut = Date.parse(day + "T00:00:00Z") / 1000;
